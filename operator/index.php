@@ -138,12 +138,69 @@ unset($_SESSION['last_sale']);
 include __DIR__ . '/../includes/header.php';
 ?>
 
+<style>
+/* Layout Fixes for Cart Scrolling & Button Visibility */
+.pos-container {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+    height: calc(100vh - 100px);
+    overflow: hidden;
+}
+
+.pos-catalog-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.pos-products-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.pos-cart-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#checkoutForm {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.pos-cart-items {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 120px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.cart-summary {
+    padding: 12px 16px;
+    background: #fafafa;
+    border-top: 1px solid var(--border-color);
+    overflow-y: auto;
+    max-height: calc(100vh - 320px);
+}
+</style>
+
 <!-- SALE COMPLETED POPUP BANNER (IF SALE JUST DONE) -->
 <?php if ($completedSaleInfo): ?>
-    <div class="card" style="border-left: 4px solid var(--success); background: #f0fdf4; margin-bottom: 16px;">
-        <div class="card-body" style="padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div class="card" style="border-left: 4px solid var(--success); background: #f0fdf4; margin-bottom: 12px;">
+        <div class="card-body" style="padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span class="badge badge-success" style="font-size: 13px;">✓ Sale Completed</span>
+                <span class="badge badge-success" style="font-size: 12px;">✓ Sale Completed</span>
                 <span>Invoice: <strong><?= e($completedSaleInfo['invoice']) ?></strong> · Total: <strong>Rs <?= money($completedSaleInfo['amount']) ?></strong> (<?= e($completedSaleInfo['mode']) ?>)</span>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -183,7 +240,7 @@ include __DIR__ . '/../includes/header.php';
             <!-- Categories Chips -->
             <div class="pos-categories">
                 <button type="button" class="category-chip active" onclick="filterCategory('')">All Items</button>
-                <?php foreach ($categories as $cat): ?>
+                <?php foreach ($categories as$cat): ?>
                     <button type="button" class="category-chip" onclick="filterCategory('<?= e(addslashes($cat['name'])) ?>')">
                         <?= e($cat['name']) ?>
                     </button>
@@ -193,9 +250,9 @@ include __DIR__ . '/../includes/header.php';
 
         <!-- Product Grid -->
         <div class="pos-products-grid" id="posProductsGrid">
-            <?php foreach ($products as $p): 
-                $isOut = $p['stock_quantity'] <= 0;
-                $isLow = $p['stock_quantity'] <= $p['min_alert_limit'];
+            <?php foreach ($products as$p): 
+                $isOut =$p['stock_quantity'] <= 0;
+                $isLow = $p['stock_quantity'] <=$p['min_alert_limit'];
             ?>
                 <div class="pos-product-card <?= $isOut ? 'out-of-stock' : '' ?>"
                      data-id="<?= $p['id'] ?>"
@@ -240,102 +297,100 @@ include __DIR__ . '/../includes/header.php';
             <input type="hidden" name="items" id="itemsPayload">
             <input type="hidden" name="payment_mode" id="selectedPaymentMode" value="Cash">
 
-            <div class="pos-cart-header">
+            <div class="pos-cart-header" style="padding: 10px 14px; border-bottom: 1px solid var(--border-color);">
                 <div>
-                    <h3 style="font-size: 16px; font-weight: 800;">Current Order</h3>
-                    <span class="text-muted" id="cartItemCount" style="font-size: 11.5px;">0 items</span>
+                    <h3 style="font-size: 15px; font-weight: 800; margin: 0;">Current Order</h3>
+                    <span class="text-muted" id="cartItemCount" style="font-size: 11px;">0 items</span>
                 </div>
                 <button type="button" class="btn btn-sm btn-light" onclick="clearCart()" title="Empty cart">Clear Cart</button>
             </div>
 
             <!-- Customer Details -->
-            <div class="customer-info-box">
+            <div class="customer-info-box" style="padding: 8px 14px; border-bottom: 1px solid var(--border-color); background: #fdfdfd;">
                 <div>
-                    <label style="font-size: 11.5px; margin-bottom: 2px;">Customer / Buyer Name</label>
-                    <input type="text" name="buyer_name" class="form-control" placeholder="Walk-in Customer" style="padding: 6px 10px; font-size: 12.5px;">
+                    <label style="font-size: 11px; margin-bottom: 2px;">Customer / Buyer Name</label>
+                    <input type="text" name="buyer_name" class="form-control" placeholder="Walk-in Customer" style="padding: 5px 8px; font-size: 12px;">
                 </div>
                 <div>
-                    <label style="font-size: 11.5px; margin-bottom: 2px;">Phone Number (Optional)</label>
-                    <input type="text" name="buyer_phone" class="form-control" placeholder="0300-XXXXXXX" style="padding: 6px 10px; font-size: 12.5px;">
+                    <label style="font-size: 11px; margin-bottom: 2px;">Phone Number (Optional)</label>
+                    <input type="text" name="buyer_phone" class="form-control" placeholder="0300-XXXXXXX" style="padding: 5px 8px; font-size: 12px;">
                 </div>
             </div>
 
-            <!-- Cart Line Items -->
+            <!-- Cart Line Items (Scrollable) -->
             <div class="pos-cart-items" id="cartItemsContainer">
-                <div class="text-center text-muted" style="padding: 40px 10px;">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom: 10px;">
+                <div class="text-center text-muted" style="padding: 30px 10px;">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom: 8px;">
                         <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                     </svg>
-                    <p style="font-size: 13px; font-weight: 600;">Cart is empty</p>
-                    <small>Click on items from the left or scan barcode to add</small>
+                    <p style="font-size: 12px; font-weight: 600;">Cart is empty</p>
+                    <small style="font-size: 11px;">Click on items from the left or scan barcode to add</small>
                 </div>
             </div>
 
-            <!-- Cart Summary & Actions -->
+            <!-- Cart Summary & Actions (Fixed/Pinnable Bottom) -->
             <div class="cart-summary">
-                <div class="summary-line">
+                <div class="summary-line" style="font-size: 12px; margin-bottom: 4px;">
                     <span>Subtotal</span>
                     <strong id="subtotalDisplay">Rs 0.00</strong>
                 </div>
 
-                <div class="summary-line" style="align-items: center;">
-                    <span>Bonus / Discount</span>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="font-size: 12px; color: var(--text-muted);">Rs</span>
-                        <input type="number" step="0.01" name="bonus_discount" id="discountInput" value="0" class="form-control" style="width: 90px; padding: 4px 8px; text-align: right; font-weight: 700;" oninput="renderCart()">
+                <div class="summary-line" style="align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 12px;">Bonus / Discount</span>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 11px; color: var(--text-muted);">Rs</span>
+                        <input type="number" step="0.01" name="bonus_discount" id="discountInput" value="0" class="form-control" style="width: 80px; padding: 3px 6px; text-align: right; font-weight: 700; font-size: 12px;" oninput="renderCart()">
                     </div>
                 </div>
 
-                <div class="summary-line summary-total">
-                    <span>NET PAYABLE</span>
-                    <span id="netPayableDisplay" style="color: var(--primary);">Rs 0.00</span>
+                <div class="summary-line summary-total" style="padding-top: 6px; margin-top: 4px; border-top: 1px dashed #e2e8f0;">
+                    <span style="font-size: 13px;">NET PAYABLE</span>
+                    <span id="netPayableDisplay" style="color: var(--primary); font-size: 17px; font-weight: 800;">Rs 0.00</span>
                 </div>
 
-                <!-- Payment Modes (Cash, Bank, Udhar) -->
-                <div style="margin-top: 10px;">
-                    <label style="font-size: 11.5px; margin-bottom: 4px;">Payment Method</label>
-                    <div class="payment-modes-grid">
-                        <button type="button" class="payment-mode-btn active" data-mode="Cash" onclick="selectPaymentMode('Cash')">
+                <!-- Payment Modes -->
+                <div style="margin-top: 8px;">
+                    <label style="font-size: 11px; margin-bottom: 4px;">Payment Method</label>
+                    <div class="payment-modes-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+                        <button type="button" class="payment-mode-btn active" data-mode="Cash" onclick="selectPaymentMode('Cash')" style="padding: 6px; font-size: 11px;">
                             💵 Cash
                         </button>
-                        <button type="button" class="payment-mode-btn" data-mode="Bank" onclick="selectPaymentMode('Bank')">
+                        <button type="button" class="payment-mode-btn" data-mode="Bank" onclick="selectPaymentMode('Bank')" style="padding: 6px; font-size: 11px;">
                             💳 Bank
                         </button>
-                        <button type="button" class="payment-mode-btn" data-mode="Udhar" onclick="selectPaymentMode('Udhar')">
-                            📒 Udhar (Credit)
+                        <button type="button" class="payment-mode-btn" data-mode="Udhar" onclick="selectPaymentMode('Udhar')" style="padding: 6px; font-size: 11px;">
+                            📒 Udhar
                         </button>
                     </div>
                 </div>
 
                 <!-- Cash Tendered & Change Due -->
-                <div id="cashCalculatorBox">
-                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-                        <div style="flex: 1;">
-                            <label style="font-size: 11px; margin-bottom: 2px;">Cash Received (Rs)</label>
-                            <input type="number" step="0.01" name="paid_amount" id="cashTendered" class="form-control" placeholder="0.00" style="padding: 7px 10px; font-weight: 700;" oninput="calcChange()">
-                        </div>
+                <div id="cashCalculatorBox" style="margin-top: 8px;">
+                    <div style="margin-bottom: 6px;">
+                        <label style="font-size: 11px; margin-bottom: 2px;">Cash Received (Rs)</label>
+                        <input type="number" step="0.01" name="paid_amount" id="cashTendered" class="form-control" placeholder="0.00" style="padding: 5px 8px; font-weight: 700; font-size: 13px;" oninput="calcChange()">
                     </div>
-                    <div class="change-due-box" id="changeBox">
+                    <div class="change-due-box" id="changeBox" style="padding: 6px 10px; font-size: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; display: flex; justify-content: space-between;">
                         <span>Change Return (Baqaya):</span>
-                        <span id="changeDisplay">Rs 0.00</span>
+                        <span id="changeDisplay" style="font-weight: 800; color: #047857;">Rs 0.00</span>
                     </div>
                 </div>
 
                 <!-- Udhar Notice -->
-                <div id="udharNoticeBox" class="alert alert-warning" style="display:none; padding: 8px 12px; margin-bottom: 10px; font-size: 12px;">
-                    ⚠️ This bill will be recorded under <strong>Customer Udhar Khata</strong>.
+                <div id="udharNoticeBox" class="alert alert-warning" style="display:none; padding: 6px 10px; margin-top: 8px; margin-bottom: 4px; font-size: 11px;">
+                    ⚠️ Recorded under <strong>Customer Udhar Khata</strong>.
                 </div>
 
                 <!-- Auto-print Checkbox -->
-                <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-size: 12.5px;">
+                <div style="margin-top: 8px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; font-size: 11.5px;">
                     <input type="checkbox" name="autoprint" id="autoPrintCheck" value="1" checked style="width: auto; margin: 0;">
                     <label for="autoPrintCheck" style="margin: 0; cursor: pointer; font-weight: 600;">
                         🖨️ Auto-open receipt print after checkout
                     </label>
                 </div>
 
-                <button type="submit" class="btn btn-success btn-block btn-lg" id="checkoutBtn" disabled>
+                <button type="submit" class="btn btn-success btn-block" id="checkoutBtn" disabled style="padding: 10px; font-size: 14px; font-weight: 700;">
                     ✓ Complete Sale & Print Bill
                 </button>
             </div>
@@ -368,7 +423,7 @@ include __DIR__ . '/../includes/header.php';
                                 <td colspan="5" class="text-center text-muted" style="padding: 25px;">No recent bills found.</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($recentInvoices as $inv): ?>
+                            <?php foreach ($recentInvoices as$inv): ?>
                                 <tr>
                                     <td><strong><?= e($inv['invoice_number']) ?></strong></td>
                                     <td><?= e($inv['buyer_name'] ?: 'Walk-in') ?></td>
@@ -395,26 +450,26 @@ include __DIR__ . '/../includes/header.php';
 <!-- ==================== SALE SUCCESS MODAL ==================== -->
 <?php if ($completedSaleInfo): ?>
 <div id="saleSuccessModal" class="modal-overlay active">
-    <div class="modal-content" style="max-width: 440px; text-align: center;">
+    <div class="modal-content" style="max-width: 420px; text-align: center;">
         <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
-            <div style="width: 50px; height: 50px; background: #ecfdf5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-size: 26px;">
+            <div style="width: 48px; height: 48px; background: #ecfdf5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #10b981; font-size: 24px;">
                 ✓
             </div>
         </div>
         <div class="modal-body" style="padding-top: 10px;">
-            <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 4px;">Sale Completed!</h3>
-            <p class="text-muted" style="margin-bottom: 16px;">Invoice: <code><?= e($completedSaleInfo['invoice']) ?></code></p>
+            <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Sale Completed!</h3>
+            <p class="text-muted" style="margin-bottom: 14px;">Invoice: <code><?= e($completedSaleInfo['invoice']) ?></code></p>
             
-            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
                     <span class="text-muted">Customer:</span>
                     <strong><?= e($completedSaleInfo['buyer']) ?></strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
                     <span class="text-muted">Payment Mode:</span>
                     <span class="badge badge-primary"><?= e($completedSaleInfo['mode']) ?></span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 16px; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 6px;">
+                <div style="display: flex; justify-content: space-between; font-size: 15px; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 6px;">
                     <strong>Net Payable:</strong>
                     <strong style="color: var(--primary);">Rs <?= money($completedSaleInfo['amount']) ?></strong>
                 </div>
@@ -523,30 +578,30 @@ function renderCart() {
 
     if (cart.length === 0) {
         container.innerHTML = `
-            <div class="text-center text-muted" style="padding: 40px 10px;">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom: 10px;">
+            <div class="text-center text-muted" style="padding: 30px 10px;">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom: 8px;">
                     <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                 </svg>
-                <p style="font-size: 13px; font-weight: 600;">Cart is empty</p>
-                <small>Click on items from the left or scan barcode to add</small>
+                <p style="font-size: 12px; font-weight: 600;">Cart is empty</p>
+                <small style="font-size: 11px;">Click on items from the left or scan barcode to add</small>
             </div>
         `;
         checkoutBtn.disabled = true;
     } else {
         container.innerHTML = cart.map(item => `
-            <div class="cart-item-row">
-                <div class="cart-item-name">
+            <div class="cart-item-row" style="padding: 6px 0; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                <div class="cart-item-name" style="flex: 1; font-size: 12px; font-weight: 600; line-height: 1.2;">
                     ${item.name}
-                    <div class="cart-item-price">${formatMoney(item.price)} each</div>
+                    <div class="cart-item-price" style="font-size: 11px; color: #64748b; font-weight: 400;">${formatMoney(item.price)} each</div>
                 </div>
-                <div class="cart-qty-ctrl">
-                    <button type="button" class="qty-btn" onclick="updateQty(${item.id}, -1)">&minus;</button>
-                    <input type="number" class="qty-input" value="${item.qty}" min="1" max="${item.stock}" onchange="setQty(${item.id}, this.value)">
-                    <button type="button" class="qty-btn" onclick="updateQty(${item.id}, 1)">&#43;</button>
+                <div class="cart-qty-ctrl" style="display: flex; align-items: center; gap: 2px;">
+                    <button type="button" class="qty-btn" onclick="updateQty(${item.id}, -1)" style="padding: 2px 6px; font-size: 11px;">&minus;</button>
+                    <input type="number" class="qty-input" value="${item.qty}" min="1" max="${item.stock}" onchange="setQty(${item.id}, this.value)" style="width: 34px; padding: 2px; text-align: center; font-size: 11px;">
+                    <button type="button" class="qty-btn" onclick="updateQty(${item.id}, 1)" style="padding: 2px 6px; font-size: 11px;">&#43;</button>
                 </div>
-                <div class="cart-item-total">${formatMoney(item.price * item.qty)}</div>
-                <button type="button" class="cart-remove-btn" onclick="removeFromCart(${item.id})" title="Remove item">&times;</button>
+                <div class="cart-item-total" style="font-size: 12px; font-weight: 700; width: 65px; text-align: right;">${formatMoney(item.price * item.qty)}</div>
+                <button type="button" class="cart-remove-btn" onclick="removeFromCart(${item.id})" title="Remove item" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 14px;">&times;</button>
             </div>
         `).join('');
         checkoutBtn.disabled = false;
