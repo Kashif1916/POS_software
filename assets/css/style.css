@@ -1,9 +1,9 @@
 /* ==========================================================================
-   Super POS Mart - Modern Clean White POS Stylesheet
+   Super POS Mart - Modern Clean White POS Stylesheet (Green SaaS Theme)
    ========================================================================== */
 
 :root {
-  --bg-app: #f8fafc;
+  --bg-app: #f4f6f8;
   --bg-card: #ffffff;
   --bg-sidebar: #ffffff;
   --border-color: #e2e8f0;
@@ -13,12 +13,13 @@
   --text-secondary: #475569;
   --text-muted: #94a3b8;
 
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
+  /* Primary Accent: Vibrant Lime Green (Creativillo Theme) */
+  --primary: #22c55e;          /* Main Green */
+  --primary-hover: #16a34a;    /* Darker Green for Hover */
+  --primary-light: #f0fdf4;    /* Light Tint Background */
 
-  --success: #10b981;
-  --success-light: #ecfdf5;
+  --success: #16a34a;
+  --success-light: #dcfce7;
 
   --warning: #f59e0b;
   --warning-light: #fffbeb;
@@ -104,7 +105,7 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 10px rgba(34, 197, 94, 0.25);
 }
 
 .brand-title {
@@ -206,7 +207,7 @@ button, input, select, textarea {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: var(--primary-light);
   color: var(--primary);
   display: flex;
   align-items: center;
@@ -561,7 +562,7 @@ label {
 
 .form-control:focus, input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
 }
 
 .form-row {
@@ -772,7 +773,7 @@ label {
 .category-chip.active, .category-chip:hover {
   background: var(--primary-light);
   color: var(--primary);
-  border-color: #bfdbfe;
+  border-color: #bbf7d0;
 }
 
 .pos-products-grid {
@@ -920,7 +921,7 @@ label {
 .cart-scroll-btn:hover {
   background: var(--primary-light);
   color: var(--primary);
-  border-color: #bfdbfe;
+  border-color: #bbf7d0;
 }
 
 .cart-item-row {
@@ -1093,7 +1094,7 @@ label {
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 8px 16px rgba(34, 197, 94, 0.25);
 }
 
 .auth-brand h2 {
@@ -1149,9 +1150,9 @@ label {
   padding: 24px 20px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 12px;
-  color: #000;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  color: #111827;
   box-shadow: var(--shadow-md);
 }
 

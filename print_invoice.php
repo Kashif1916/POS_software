@@ -42,13 +42,13 @@ $autoprint = isset($_GET['autoprint']);
             width: 320px;
             margin: 20px auto;
             background: #fff;
-            padding: 20px 15px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            color: #000;
+            padding: 20px 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+            color: #111827;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            line-height: 1.35;
+            line-height: 1.4;
         }
         .thermal-header {
             text-align: center;
@@ -56,64 +56,84 @@ $autoprint = isset($_GET['autoprint']);
         }
         .thermal-header h2 {
             font-size: 18px;
-            font-weight: 900;
+            font-weight: 800;
             margin: 0;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         .thermal-header p {
-            margin: 2px 0;
-            font-size: 11px;
+            margin: 3px 0;
+            font-size: 11.5px;
+            color: #4b5563;
         }
         .thermal-line {
-            border-top: 1px dashed #000;
-            margin: 8px 0;
+            border-top: 1px dashed #374151;
+            margin: 10px 0;
         }
         .thermal-meta {
-            font-size: 11px;
+            font-size: 12px;
             margin-bottom: 8px;
+            line-height: 1.45;
+            color: #374151;
         }
         .thermal-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11.5px;
+            font-size: 12px;
         }
         .thermal-table th {
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
-            padding: 4px 0;
+            border-top: 1px dashed #374151;
+            border-bottom: 1px dashed #374151;
+            padding: 5px 0;
             text-align: left;
+            font-weight: 700;
         }
         .thermal-table td {
-            padding: 4px 0;
+            padding: 5px 0;
             vertical-align: top;
         }
         .thermal-totals {
-            margin-top: 6px;
-            font-size: 12px;
+            margin-top: 8px;
+            font-size: 12.5px;
         }
         .thermal-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 3px;
+            margin-bottom: 4px;
         }
         .thermal-grand {
             font-size: 15px;
-            font-weight: 900;
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
+            font-weight: 800;
+            border-top: 1px dashed #374151;
+            border-bottom: 1px dashed #374151;
             padding: 6px 0;
-            margin: 6px 0;
+            margin: 8px 0;
+            color: #111827;
         }
         .thermal-footer {
             text-align: center;
-            font-size: 10.5px;
-            margin-top: 15px;
+            font-size: 11px;
+            margin-top: 16px;
+            color: #4b5563;
         }
         .barcode-mock {
             font-family: 'Libre Barcode 39', monospace, sans-serif;
             font-size: 26px;
             letter-spacing: 2px;
             margin-top: 6px;
+            color: #111827;
+        }
+        @media print {
+            body { background: #fff !important; }
+            .no-print { display: none !important; }
+            .thermal-receipt {
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                padding: 4px !important;
+                width: 100% !important;
+                max-width: 320px;
+            }
         }
     </style>
 </head>

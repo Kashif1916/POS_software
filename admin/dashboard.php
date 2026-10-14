@@ -37,7 +37,7 @@ $payBreakdown = [
     'Udhar' => $stats['udhar_sales']
 ];
 
-// Low stock items list (up to 5 for quick widget)
+// Low stock items list
 $lowStockProducts = $pdo->query("SELECT p.*, c.name as category_name, d.name as dealer_name 
     FROM products p 
     LEFT JOIN categories c ON c.id = p.category_id 
@@ -70,7 +70,7 @@ include __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 
 <!-- Quick Shortcuts Header -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
     <div>
         <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary);">Today's Overview & Shortcuts</h2>
         <p class="text-muted" style="font-size: 12.5px;">Live real-time summary for <?= date('d F Y') ?></p>
@@ -93,7 +93,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Today's Total Sale</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             </div>
         </div>
         <div class="stat-value">Rs <?= money($stats['total_sales']) ?></div>
@@ -108,7 +108,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Cash in Drawer</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>
             </div>
         </div>
         <div class="stat-value text-success">Rs <?= money($stats['drawer_cash']) ?></div>
@@ -120,10 +120,10 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Net Profit Today</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
             </div>
         </div>
-        <div class="stat-value" style="color: #059669;">Rs <?= money($stats['net_profit']) ?></div>
+        <div class="stat-value" style="color: #16a34a;">Rs <?= money($stats['net_profit']) ?></div>
         <div class="stat-desc">Sales revenue minus COGS & expenses</div>
     </div>
 
@@ -132,7 +132,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Today's Udhar (Credit)</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             </div>
         </div>
         <div class="stat-value text-warning">Rs <?= money($stats['udhar_sales']) ?></div>
@@ -144,7 +144,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Dealer Payments</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
             </div>
         </div>
         <div class="stat-value">Rs <?= money($stats['dealer_paid']) ?></div>
@@ -156,7 +156,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Today's Expenses</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             </div>
         </div>
         <div class="stat-value text-danger">Rs <?= money($stats['total_expense']) ?></div>
@@ -168,7 +168,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Returns / Refunds</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
             </div>
         </div>
         <div class="stat-value"><?= $stats['returns_count'] ?> <span style="font-size: 14px; font-weight: 600;">Items</span></div>
@@ -180,7 +180,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-box-header">
             <span class="stat-title">Bonus / Discount</span>
             <div class="stat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </div>
         </div>
         <div class="stat-value">Rs <?= money($stats['total_discounts']) ?></div>
@@ -188,27 +188,27 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- Charts Section -->
-<div class="dashboard-grid">
-    <div class="card">
+<!-- Charts Section (Fixed Grid Layout to prevent chart overflow) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; width: 100%; box-sizing: border-box;">
+    <div class="card" style="margin-bottom: 0; min-width: 0;">
         <div class="card-header">
             <h3>Sales Revenue Trend (Last 7 Days)</h3>
             <span class="badge badge-primary">Completed Sales</span>
         </div>
         <div class="card-body">
-            <div style="height: 280px; position: relative;">
+            <div style="position: relative; height: 260px; width: 100%; min-width: 0;">
                 <canvas id="salesTrendChart"></canvas>
             </div>
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-bottom: 0; min-width: 0;">
         <div class="card-header">
             <h3>Today's Payment Modes</h3>
             <span class="badge badge-gray"><?= $stats['invoice_count'] ?> Invoices</span>
         </div>
         <div class="card-body">
-            <div style="height: 280px; position: relative;">
+            <div style="position: relative; height: 260px; width: 100%; min-width: 0;">
                 <canvas id="paymentModeChart"></canvas>
             </div>
         </div>
@@ -216,8 +216,7 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Low Stock & Recent Sales Rows -->
-<div class="row" style="margin-top: 10px;">
-    <!-- Low Stock Quick Table -->
+<div class="row" style="margin-top: 24px;">
     <?php if ($lowStockProducts): ?>
     <div class="col-4">
         <div class="card">
@@ -258,7 +257,6 @@ include __DIR__ . '/../includes/header.php';
     </div>
     <?php endif; ?>
 
-    <!-- Recent Sales Invoices -->
     <div class="<?= $lowStockProducts ? 'col-8' : 'col-12' ?>">
         <div class="card">
             <div class="card-header">
@@ -324,6 +322,10 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
+if (window.Chart) {
+    Chart.defaults.devicePixelRatio = window.devicePixelRatio || 2;
+}
+
 // Sales Trend Chart
 const ctxTrend = document.getElementById('salesTrendChart').getContext('2d');
 new Chart(ctxTrend, {
@@ -333,13 +335,16 @@ new Chart(ctxTrend, {
         datasets: [{
             label: 'Sales Revenue (Rs)',
             data: <?= json_encode($chartData) ?>,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34, 197, 94, 0.08)',
             borderWidth: 2.5,
             fill: true,
             tension: 0.35,
-            pointBackgroundColor: '#2563eb',
-            pointRadius: 4
+            pointBackgroundColor: '#22c55e',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
         }]
     },
     options: {
@@ -353,11 +358,17 @@ new Chart(ctxTrend, {
                 beginAtZero: true,
                 grid: { color: '#f1f5f9' },
                 ticks: {
+                    color: '#64748b',
+                    font: { weight: '600' },
                     callback: (value) => 'Rs ' + value.toLocaleString()
                 }
             },
             x: {
-                grid: { display: false }
+                grid: { display: false },
+                ticks: {
+                    color: '#64748b',
+                    font: { weight: '600' }
+                }
             }
         }
     }
@@ -374,7 +385,7 @@ new Chart(ctxPay, {
         labels: ['Cash', 'Bank', 'Udhar (Credit)'],
         datasets: [{
             data: hasSales ? payData : [1, 0, 0],
-            backgroundColor: hasSales ? ['#10b981', '#0284c7', '#f59e0b'] : ['#e2e8f0', '#e2e8f0', '#e2e8f0'],
+            backgroundColor: hasSales ? ['#22c55e', '#0284c7', '#f59e0b'] : ['#e2e8f0', '#e2e8f0', '#e2e8f0'],
             borderWidth: 2,
             borderColor: '#ffffff'
         }]
@@ -382,11 +393,11 @@ new Chart(ctxPay, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '70%',
+        cutout: '68%',
         plugins: {
             legend: {
                 position: 'bottom',
-                labels: { boxWidth: 12, font: { weight: 600 } }
+                labels: { boxWidth: 12, padding: 16, font: { weight: '700', size: 12 } }
             }
         }
     }
