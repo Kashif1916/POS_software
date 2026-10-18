@@ -80,6 +80,11 @@ function navActive(string $path, string $currentUri): string {
             </a>
 
             <div class="nav-section-title">Reports & System</div>
+            <a class="nav-item <?= navActive('/operator/analytics.php', $currentUri) ?>" href="/POS_software/operator/analytics.php">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>
+                <span>Sales & Drawer Hisab</span>
+            </a>
+
             <a class="nav-item <?= navActive('/admin/analytics.php', $currentUri) ?>" href="/POS_software/admin/analytics.php">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                 <span>Analytics (Custom Days)</span>

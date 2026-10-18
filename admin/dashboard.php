@@ -53,18 +53,40 @@ $recentSales = $pdo->query("SELECT s.*, u.username as operator_name
     ORDER BY s.id DESC 
     LIMIT 8")->fetchAll();
 
+// Expiry alerts (expired or expiring in next 30 days)
+$expiryAlertItems = $pdo->query("SELECT p.*, c.name as category_name, DATEDIFF(p.expiry_date, CURDATE()) as days_left 
+    FROM products p 
+    LEFT JOIN categories c ON c.id = p.category_id 
+    WHERE p.expiry_date IS NOT NULL AND p.expiry_date <= CURDATE() + INTERVAL 30 DAY 
+    ORDER BY p.expiry_date ASC 
+    LIMIT 5")->fetchAll();
+$expiryAlertTotal = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE expiry_date IS NOT NULL AND expiry_date <= CURDATE() + INTERVAL 30 DAY")->fetchColumn();
+
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <!-- Low Stock Alert Banner -->
 <?php if ($stats['low_stock_count'] > 0): ?>
-    <div class="card" style="border-left: 4px solid var(--danger); background: #fffdfd; margin-bottom: 20px;">
-        <div class="card-body" style="padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div class="card" style="border-left: 4px solid var(--danger); background: #fffdfd; margin-bottom: 14px;">
+        <div class="card-body" style="padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <span class="badge badge-danger" style="font-size: 13px; padding: 6px 12px;">⚠️ Stock Alert</span>
                 <strong><?= $stats['low_stock_count'] ?> product(s) are low in stock (below threshold limit).</strong>
             </div>
             <a href="/POS_software/admin/products.php?filter=low" class="btn btn-sm btn-danger">View Low Stock Items</a>
+        </div>
+    </div>
+<?php endif; ?>
+
+<!-- Expiry Alert Banner -->
+<?php if ($expiryAlertTotal > 0): ?>
+    <div class="card" style="border-left: 4px solid #e11d48; background: #fff5f5; margin-bottom: 20px;">
+        <div class="card-body" style="padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="badge" style="background: #e11d48; color: #fff; font-size: 13px; padding: 6px 12px;">📅 Expiry Alert</span>
+                <strong><?= $expiryAlertTotal ?> product(s) are already expired or expiring within 30 days!</strong>
+            </div>
+            <a href="/POS_software/admin/products.php?filter=expired" class="btn btn-sm" style="background: #e11d48; color: #fff;">View Expiring Products</a>
         </div>
     </div>
 <?php endif; ?>

@@ -9,6 +9,8 @@ $pdo = db();
 
 // Low stock alert count
 $lowStockAlertCount = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE stock_quantity <= min_alert_limit")->fetchColumn();
+// Expiry alert count (expired or expiring within 30 days)
+$expiryAlertCount = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE expiry_date IS NOT NULL AND expiry_date <= CURDATE() + INTERVAL 30 DAY")->fetchColumn();
 ?>
 <!doctype html>
 <html lang="en">
@@ -19,7 +21,7 @@ $lowStockAlertCount = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE sto
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/POS_software/assets/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="/POS_software/assets/js/chart.min.js"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -37,7 +39,19 @@ $lowStockAlertCount = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE sto
                             <line x1="12" y1="9" x2="12" y2="13"></line>
                             <line x1="12" y1="17" x2="12.01" y2="17"></line>
                         </svg>
-                        <span><?= $lowStockAlertCount ?> Low Stock Alert<?= $lowStockAlertCount > 1 ? 's' : '' ?></span>
+                        <span><?= $lowStockAlertCount ?> Low Stock</span>
+                    </a>
+                <?php endif; ?>
+
+                <?php if ($expiryAlertCount > 0): ?>
+                    <a href="/POS_software/admin/products.php?filter=expired" class="stock-alert-pill" style="background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3;" title="Products expired or expiring within 30 days">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        <span><?= $expiryAlertCount ?> Expiry Alert</span>
                     </a>
                 <?php endif; ?>
 

@@ -149,6 +149,7 @@ foreach ($daysList as $d) {
 $topProductsStmt = $pdo->prepare("SELECT 
     p.name, 
     c.name as category_name,
+    p.unit,
     SUM(si.quantity) as qty_sold,
     SUM(si.total_price) as revenue,
     SUM(si.total_price - (si.cost_price * si.quantity)) as profit_generated
@@ -163,8 +164,47 @@ $topProductsStmt = $pdo->prepare("SELECT
 $topProductsStmt->execute([$startDate, $endDate]);
 $topProducts = $topProductsStmt->fetchAll();
 
+// 9. Slow Moving / Dead Stock / Low Selling Products in this period
+$lowSellingStmt = $pdo->prepare("SELECT 
+    p.id,
+    p.name, 
+    p.stock_quantity,
+    p.unit,
+    p.market_sale_price,
+    c.name as category_name,
+    COALESCE(sales_summary.qty_sold, 0) as qty_sold,
+    COALESCE(sales_summary.revenue, 0) as revenue
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    LEFT JOIN (
+        SELECT si.product_id, 
+               SUM(si.quantity) as qty_sold, 
+               SUM(si.total_price) as revenue
+        FROM sale_items si
+        JOIN sales s ON s.id = si.sale_id
+        WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ?
+        GROUP BY si.product_id
+    ) sales_summary ON sales_summary.product_id = p.id
+    ORDER BY qty_sold ASC, p.stock_quantity DESC
+    LIMIT 8");
+$lowSellingStmt->execute([$startDate, $endDate]);
+$lowSellingProducts = $lowSellingStmt->fetchAll();
+
+// Physical Drawer Cash reconciliation
+$expectedDrawerCash = $cashInflow - $cashOutflow;
+
 include __DIR__ . '/../includes/header.php';
 ?>
+
+<!-- View Switcher -->
+<div class="no-print" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+    <a href="/POS_software/admin/analytics.php" class="btn btn-primary btn-sm" style="font-weight: 700;">
+        📊 Financial & Profit Analytics (Selected Period)
+    </a>
+    <a href="/POS_software/operator/analytics.php" class="btn btn-light btn-sm" style="font-weight: 700;">
+        💰 Sales & Drawer Hisab (Cashier Audit) &rarr;
+    </a>
+</div>
 
 <!-- Analytics Filter Header -->
 <div class="card" style="margin-bottom: 22px;">
@@ -205,6 +245,27 @@ include __DIR__ . '/../includes/header.php';
             <button type="submit" class="btn btn-primary btn-sm">Apply Date Range</button>
             <button type="button" onclick="window.print()" class="btn btn-light btn-sm">🖨️ Print Analytics</button>
         </form>
+    </div>
+</div>
+
+<!-- Cash Drawer Reconciliation Banner -->
+<div class="card" style="margin-bottom: 22px; border-left: 5px solid #16a34a; background: linear-gradient(to right, #f0fdf4, #ffffff);">
+    <div class="card-body" style="padding: 20px 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: #dcfce7; color: #166534; border-radius: 20px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="12" x2="18" y2="12"></line></svg>
+                    Expected Drawer Cash &middot; Gullay Mein Hone Chahiye
+                </div>
+                <div style="font-size: 32px; font-weight: 900; color: #15803d; line-height: 1.1; margin-bottom: 4px;">
+                    Rs <?= money($expectedDrawerCash) ?>
+                </div>
+                <p class="text-secondary" style="font-size: 13px; margin: 0;">
+                    Cash Inflow: <strong>Rs <?= money($cashInflow) ?></strong> (Sales: <?= money($salesData['cash_sales']) ?>, Udhar Recovered: <?= money($udharData['cash_recovered']) ?>) &minus; Cash Outflow: <strong>Rs <?= money($cashOutflow) ?></strong> (Expenses: <?= money($expData['cash_expenses']) ?>, Dealer: <?= money($dealerData['cash_dealer_paid']) ?>, Returns: <?= money($retData['total_refunds']) ?>)
+                </p>
+            </div>
+            <a href="/POS_software/operator/analytics.php" class="btn btn-sm btn-success">View Detailed Drawer Audit &rarr;</a>
+        </div>
     </div>
 </div>
 
@@ -346,14 +407,14 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- Top Selling Products & Day-by-Day Table -->
+<!-- Products Performance: Top Selling vs Low/Zero Selling Products -->
 <div class="row" style="margin-top: 20px;">
     <!-- Top Selling Products -->
-    <div class="col-4">
-        <div class="card">
+    <div class="col-6">
+        <div class="card" style="height: 100%;">
             <div class="card-header">
-                <h3>Top Selling Products</h3>
-                <span class="badge badge-gray">By Quantity</span>
+                <h3>🔥 Top Selling Products</h3>
+                <span class="badge badge-success">High Demand</span>
             </div>
             <div class="card-body" style="padding: 0;">
                 <div class="table-responsive">
@@ -361,7 +422,7 @@ include __DIR__ . '/../includes/header.php';
                         <thead>
                             <tr>
                                 <th>Product</th>
-                                <th class="text-center">Qty</th>
+                                <th class="text-center">Qty Sold</th>
                                 <th class="text-right">Sales</th>
                                 <th class="text-right">Profit</th>
                             </tr>
@@ -380,8 +441,10 @@ include __DIR__ . '/../includes/header.php';
                                             <strong><?= e($tp['name']) ?></strong><br>
                                             <small class="text-muted"><?= e($tp['category_name'] ?? 'General') ?></small>
                                         </td>
-                                        <td class="text-center font-bold"><?= $tp['qty_sold'] ?></td>
-                                        <td class="text-right text-success">Rs <?= money($tp['revenue']) ?></td>
+                                        <td class="text-center font-bold">
+                                            <?= $tp['unit'] === 'kg' ? rtrim(rtrim(number_format((float)$tp['qty_sold'], 3), '0'), '.') . ' kg' : (int)$tp['qty_sold'] . ' pcs' ?>
+                                        </td>
+                                        <td class="text-right text-success font-bold">Rs <?= money($tp['revenue']) ?></td>
                                         <td class="text-right font-bold" style="color: #059669;">
                                             Rs <?= money($tp['profit_generated']) ?>
                                         </td>
@@ -395,8 +458,65 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <!-- Day-by-Day Breakdown -->
-    <div class="col-8">
+    <!-- Low / Zero Selling Products (Dead Stock) -->
+    <div class="col-6">
+        <div class="card" style="height: 100%;">
+            <div class="card-header">
+                <h3>❄️ Low / Zero Selling Products</h3>
+                <span class="badge badge-warning">Slow Moving / Dead Stock</span>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Current Stock</th>
+                                <th class="text-center">Qty Sold</th>
+                                <th class="text-right">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($lowSellingProducts)): ?>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted" style="padding: 30px;">
+                                        All products have healthy sales!
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($lowSellingProducts as $lp): ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?= e($lp['name']) ?></strong><br>
+                                            <small class="text-muted"><?= e($lp['category_name'] ?? 'General') ?></small>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-gray">
+                                                <?= $lp['unit'] === 'kg' ? rtrim(rtrim(number_format((float)$lp['stock_quantity'], 3), '0'), '.') . ' kg' : (int)$lp['stock_quantity'] . ' left' ?>
+                                            </span>
+                                        </td>
+                                        <td class="text-center font-bold">
+                                            <?php if ((float)$lp['qty_sold'] == 0): ?>
+                                                <span class="badge badge-danger">0 Sold (Dead)</span>
+                                            <?php else: ?>
+                                                <span class="badge badge-warning"><?= $lp['unit'] === 'kg' ? rtrim(rtrim(number_format((float)$lp['qty_sold'], 3), '0'), '.') . ' kg' : (int)$lp['qty_sold'] ?></span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-right font-bold">Rs <?= money($lp['market_sale_price']) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Day-by-Day Financial Breakdown Table -->
+<div class="row" style="margin-top: 24px;">
+    <div class="col-12">
         <div class="card">
             <div class="card-header">
                 <h3>Day-by-Day Financial Breakdown (<?= count($daysList) ?> Days Active)</h3>

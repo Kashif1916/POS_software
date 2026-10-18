@@ -177,13 +177,22 @@ $autoprint = isset($_GET['autoprint']);
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($items as $item): ?>
+            <?php foreach ($items as $item): 
+                $isKg = ($item['unit'] ?? 'piece') === 'kg';
+                $qty = (float) $item['quantity'];
+                if ($isKg) {
+                    $qtyText = ($qty < 1.0) ? (round($qty * 1000) . 'g') : (rtrim(rtrim(number_format($qty, 3), '0'), '.') . ' kg');
+                } else {
+                    $qtyText = (int) $qty;
+                }
+            ?>
                 <tr>
                     <td>
                         <?= e($item['product_name']) ?>
+                        <?php if ($isKg): ?><small style="color:#64748b; font-size:10px;"> (KG)</small><?php endif; ?>
                     </td>
-                    <td style="text-align: center; font-weight: 600;"><?= $item['quantity'] ?></td>
-                    <td style="text-align: right;"><?= money($item['unit_price']) ?></td>
+                    <td style="text-align: center; font-weight: 600;"><?= $qtyText ?></td>
+                    <td style="text-align: right;"><?= money($item['unit_price']) ?><?= $isKg ? '<small style="font-size:10px;">/kg</small>' : '' ?></td>
                     <td style="text-align: right; font-weight: 700;"><?= money($item['total_price']) ?></td>
                 </tr>
             <?php endforeach; ?>

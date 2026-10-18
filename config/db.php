@@ -202,6 +202,50 @@ function ensure_schema(PDO $pdo): void
         receipt_footer VARCHAR(255) NOT NULL DEFAULT 'Thank you for shopping with us! Items can be returned within 3 days with receipt.'
     ) ENGINE=InnoDB");
 
+    // Udhar Customers (for customer credit registry and limit enforcement)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS udhar_customers (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        phone VARCHAR(40) NULL,
+        address VARCHAR(255) NULL,
+        credit_limit DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        notes VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB");
+
+    // Dynamic Column & Precision Migrations for existing tables
+    try {
+        // Products table migrations: unit, expiry_date, and decimal stock
+        $prodCols = $pdo->query("SHOW COLUMNS FROM products")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('unit', $prodCols)) {
+            $pdo->exec("ALTER TABLE products ADD COLUMN unit VARCHAR(20) NOT NULL DEFAULT 'piece' AFTER min_alert_limit");
+        }
+        if (!in_array('expiry_date', $prodCols)) {
+            $pdo->exec("ALTER TABLE products ADD COLUMN expiry_date DATE NULL AFTER unit");
+        }
+        // Ensure decimal precision for kilograms/grams
+        $pdo->exec("ALTER TABLE products MODIFY stock_quantity DECIMAL(10,3) NOT NULL DEFAULT 0.000");
+        $pdo->exec("ALTER TABLE products MODIFY min_alert_limit DECIMAL(10,3) NOT NULL DEFAULT 5.000");
+
+        // Sale items migrations: decimal quantity and unit
+        $saleItemCols = $pdo->query("SHOW COLUMNS FROM sale_items")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('unit', $saleItemCols)) {
+            $pdo->exec("ALTER TABLE sale_items ADD COLUMN unit VARCHAR(20) NOT NULL DEFAULT 'piece' AFTER quantity");
+        }
+        $pdo->exec("ALTER TABLE sale_items MODIFY quantity DECIMAL(10,3) NOT NULL DEFAULT 1.000");
+
+        // Returns migrations: decimal quantity
+        $pdo->exec("ALTER TABLE returns MODIFY quantity DECIMAL(10,3) NOT NULL DEFAULT 1.000");
+
+        // Udhar ledger migrations: customer_id
+        $udharLedgerCols = $pdo->query("SHOW COLUMNS FROM udhar_ledger")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('customer_id', $udharLedgerCols)) {
+            $pdo->exec("ALTER TABLE udhar_ledger ADD COLUMN customer_id INT UNSIGNED NULL AFTER sale_id");
+        }
+    } catch (Throwable $e) {
+        // Log migration note if already modified
+    }
+
     // Seed default settings if empty
     $chkSettings = $pdo->query("SELECT COUNT(*) FROM store_settings")->fetchColumn();
     if ($chkSettings == 0) {

@@ -6,7 +6,7 @@ $pdo = db();
 $user = current_user();
 $page_title = 'Customer Udhar Collection (Wasooli)';
 
-// Handle Payment Recovery
+// Handle Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = post_string('action');
@@ -53,6 +53,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash('error', 'Please enter a valid amount.');
         }
+    } elseif ($action === 'add_customer') {
+        $name = post_string('name');
+        $phone = post_string('phone');
+        $address = post_string('address');
+        $limit = post_float('credit_limit');
+        $notes = post_string('notes');
+
+        if ($name) {
+            $stmt = $pdo->prepare("INSERT INTO udhar_customers (name, phone, address, credit_limit, notes) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$name, $phone ?: null, $address ?: null, $limit, $notes ?: null]);
+            flash('success', "Udhar Customer '$name' registered successfully with Credit Limit of Rs " . money($limit));
+        } else {
+            flash('error', 'Customer name is required.');
+        }
+        redirect('/POS_software/operator/udhar.php?tab=customers');
     }
 
     redirect('/POS_software/operator/udhar.php');
@@ -62,7 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $totalOutstanding = (float) $pdo->query("SELECT COALESCE(SUM(balance_amount), 0) FROM udhar_ledger WHERE status = 'Pending'")->fetchColumn();
 $todayRecovered = (float) $pdo->query("SELECT COALESCE(SUM(amount_paid), 0) FROM udhar_payments WHERE date = CURDATE()")->fetchColumn();
 
-// Filter
+// Filter & Tab
+$activeTab = $_GET['tab'] ?? 'invoices';
 $statusFilter = $_GET['status'] ?? 'pending';
 $where = $statusFilter === 'pending' ? "WHERE ul.status = 'Pending'" : ($statusFilter === 'cleared' ? "WHERE ul.status = 'Cleared'" : "");
 
@@ -71,6 +87,23 @@ $udhars = $pdo->query("SELECT ul.*, s.invoice_number, s.created_at as sale_date
     JOIN sales s ON s.id = ul.sale_id 
     $where 
     ORDER BY ul.status ASC, ul.balance_amount DESC")->fetchAll();
+
+// Fetch registered customers with limits and current balances
+$customers = $pdo->query("SELECT c.*,
+    COALESCE((
+        SELECT SUM(ul.balance_amount) 
+        FROM udhar_ledger ul 
+        WHERE (ul.customer_id = c.id OR (ul.customer_id IS NULL AND (ul.buyer_name = c.name OR (c.phone IS NOT NULL AND c.phone != '' AND ul.buyer_phone = c.phone))))
+          AND ul.status = 'Pending'
+    ), 0) as current_balance,
+    (
+        SELECT COUNT(*) 
+        FROM udhar_ledger ul 
+        WHERE (ul.customer_id = c.id OR (ul.customer_id IS NULL AND (ul.buyer_name = c.name OR (c.phone IS NOT NULL AND c.phone != '' AND ul.buyer_phone = c.phone))))
+          AND ul.status = 'Pending'
+    ) as pending_invoices_count
+    FROM udhar_customers c
+    ORDER BY current_balance DESC, c.name ASC")->fetchAll();
 
 $recentRecoveries = $pdo->query("SELECT up.*, ul.buyer_name, ul.buyer_phone, s.invoice_number 
     FROM udhar_payments up 
@@ -97,18 +130,123 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="filter-bar">
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <div class="search-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input type="text" data-table-search="[data-udhar-row]" placeholder="Search customer by name, phone, or invoice...">
+        <!-- Tab Navigation -->
+        <div style="display: flex; gap: 4px; background: #e2e8f0; padding: 3px; border-radius: 8px;">
+            <a href="/POS_software/operator/udhar.php?tab=invoices" class="btn btn-sm <?= $activeTab === 'invoices' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
+                📑 Udhar Bills (<?= count($udhars) ?>)
+            </a>
+            <a href="/POS_software/operator/udhar.php?tab=customers" class="btn btn-sm <?= $activeTab === 'customers' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
+                👥 Udhar Customers & Limits (<?= count($customers) ?>)
+            </a>
         </div>
 
-        <div style="display: flex; gap: 6px;">
-            <a href="/POS_software/operator/udhar.php?status=pending" class="btn btn-sm <?= $statusFilter === 'pending' ? 'btn-warning' : 'btn-light' ?>">Pending Accounts</a>
-            <a href="/POS_software/operator/udhar.php?status=cleared" class="btn btn-sm <?= $statusFilter === 'cleared' ? 'btn-success' : 'btn-light' ?>">Cleared Accounts</a>
-            <a href="/POS_software/operator/udhar.php?status=all" class="btn btn-sm <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-light' ?>">All Accounts</a>
+        <?php if ($activeTab === 'invoices'): ?>
+            <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" data-table-search="[data-udhar-row]" placeholder="Search customer by name, phone, or invoice...">
+            </div>
+
+            <div style="display: flex; gap: 6px;">
+                <a href="/POS_software/operator/udhar.php?tab=invoices&status=pending" class="btn btn-sm <?= $statusFilter === 'pending' ? 'btn-warning' : 'btn-light' ?>">Pending Bills</a>
+                <a href="/POS_software/operator/udhar.php?tab=invoices&status=cleared" class="btn btn-sm <?= $statusFilter === 'cleared' ? 'btn-success' : 'btn-light' ?>">Cleared Bills</a>
+                <a href="/POS_software/operator/udhar.php?tab=invoices&status=all" class="btn btn-sm <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-light' ?>">All Bills</a>
+            </div>
+        <?php else: ?>
+            <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" data-table-search="[data-customer-row]" placeholder="Search customer by name, phone...">
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <div>
+        <button type="button" class="btn btn-primary" data-modal-open="addCustomerModal">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            + Add Udhar Customer & Limit
+        </button>
+    </div>
+</div>
+
+<?php if ($activeTab === 'customers'): ?>
+<!-- ==================== REGISTERED CUSTOMERS TABLE ==================== -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h3 style="margin: 0;">Registered Udhar Customers & Limits</h3>
+            <small class="text-muted">Customer credit registry & assigned limits</small>
+        </div>
+        <span class="badge badge-primary"><?= count($customers) ?> Customers</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Customer / Banda</th>
+                        <th>Phone</th>
+                        <th>Address / Notes</th>
+                        <th class="text-right">Credit Limit</th>
+                        <th class="text-right">Current Udhar Balance</th>
+                        <th class="text-right">Available Credit</th>
+                        <th class="text-center">Limit Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($customers)): ?>
+                        <tr>
+                            <td colspan="7" class="text-center text-muted" style="padding: 35px;">
+                                No Udhar customers registered yet. Click <strong>+ Add Udhar Customer & Limit</strong> above to add.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($customers as $c): 
+                            $cLimit = (float) $c['credit_limit'];
+                            $cBalance = (float) $c['current_balance'];
+                            $isExceeded = $cLimit > 0 && $cBalance > $cLimit;
+                            $remCredit = $cLimit > 0 ? max(0.0, $cLimit - $cBalance) : null;
+                        ?>
+                            <tr data-customer-row>
+                                <td>
+                                    <strong><?= e($c['name']) ?></strong>
+                                    <?php if ($c['pending_invoices_count'] > 0): ?>
+                                        <br><span class="badge badge-warning" style="font-size: 10.5px;"><?= $c['pending_invoices_count'] ?> Unpaid Bills</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= e($c['phone'] ?: '—') ?></td>
+                                <td>
+                                    <small class="text-muted"><?= e($c['address'] ?: '—') ?></small>
+                                    <?php if ($c['notes']): ?>
+                                        <br><small style="color: #64748b;"><em><?= e($c['notes']) ?></em></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-right font-bold">
+                                    <?= $cLimit > 0 ? 'Rs ' . money($cLimit) : '<span class="badge badge-gray">No Limit</span>' ?>
+                                </td>
+                                <td class="text-right font-bold <?= $cBalance > 0 ? 'text-warning' : 'text-success' ?>">
+                                    Rs <?= money($cBalance) ?>
+                                </td>
+                                <td class="text-right font-bold" style="color: <?= $remCredit !== null && $remCredit == 0 ? '#dc2626' : '#16a34a' ?>;">
+                                    <?= $cLimit > 0 ? 'Rs ' . money($remCredit) : '<span class="text-muted">Unlimited</span>' ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if ($isExceeded): ?>
+                                        <span class="badge badge-danger">⛔ Limit Exceeded</span>
+                                    <?php elseif ($cLimit > 0): ?>
+                                        <span class="badge badge-success">✓ Limit OK</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-gray">Unlimited</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+
+<?php else: ?>
 
 <div class="card">
     <div class="card-header">
@@ -178,6 +316,55 @@ include __DIR__ . '/../includes/header.php';
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- ==================== ADD CUSTOMER MODAL ==================== -->
+<div id="addCustomerModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3>Add Udhar Customer (Naya Banda & Limit)</h3>
+            <button type="button" class="modal-close" data-modal-close>&times;</button>
+        </div>
+        <form method="post">
+            <div class="modal-body">
+                <input type="hidden" name="csrf" value="<?= csrf_token() ?>">
+                <input type="hidden" name="action" value="add_customer">
+
+                <div class="form-group">
+                    <label>Customer Full Name <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. Rashid Ahmad / Haji Tariq" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phone Number (Mobile)</label>
+                        <input type="text" name="phone" class="form-control" placeholder="0300-1234567">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Credit Limit (Rs) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" name="credit_limit" class="form-control" value="5000.00" placeholder="e.g. 5000 (0 for no limit)" required>
+                        <small class="text-muted">Is se ziada udhar nahi diya jaye ga</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Address / Location</label>
+                    <input type="text" name="address" class="form-control" placeholder="e.g. Street 4, Commercial Market">
+                </div>
+
+                <div class="form-group">
+                    <label>Notes / Guarantor Details</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Reference / Monthly settlement"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Customer & Limit</button>
+            </div>
+        </form>
     </div>
 </div>
 

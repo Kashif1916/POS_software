@@ -40,21 +40,47 @@ if ($startDate > $endDate) {
     $endDate = $temp;
 }
 
-// Build scope parameters if user filtered by 'my' shift
-$salesScopeSql = ($scope === 'my') ? " AND operator_id = ?" : "";
-$salesScopeParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+// Fetch active cashier operators for Admin scope selection
+$allCashiers = $pdo->query("SELECT id, username, full_name, role FROM users WHERE status = 'Active' ORDER BY role ASC, username ASC")->fetchAll();
 
-$udharScopeSql = ($scope === 'my') ? " AND created_by = ?" : "";
-$udharScopeParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+$selectedUserId = null;
+$selectedUserName = '';
+if ($scope === 'my') {
+    $selectedUserId = (int) $user['id'];
+    $selectedUserName = $user['full_name'] ?: $user['username'];
+} elseif (is_numeric($scope) && (int) $scope > 0) {
+    $selectedUserId = (int) $scope;
+    foreach ($allCashiers as $c) {
+        if ((int)$c['id'] === $selectedUserId) {
+            $selectedUserName = $c['full_name'] ?: $c['username'];
+            break;
+        }
+    }
+} elseif (str_starts_with($scope, 'user_')) {
+    $selectedUserId = (int) substr($scope, 5);
+    foreach ($allCashiers as $c) {
+        if ((int)$c['id'] === $selectedUserId) {
+            $selectedUserName = $c['full_name'] ?: $c['username'];
+            break;
+        }
+    }
+}
 
-$dealerScopeSql = ($scope === 'my') ? " AND created_by = ?" : "";
-$dealerScopeParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+// Build scope parameters if user filtered by a specific shift/counter
+$salesScopeSql = $selectedUserId ? " AND operator_id = ?" : "";
+$salesScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
-$expScopeSql = ($scope === 'my') ? " AND recorded_by = ?" : "";
-$expScopeParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+$udharScopeSql = $selectedUserId ? " AND created_by = ?" : "";
+$udharScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
-$retScopeSql = ($scope === 'my') ? " AND created_by = ?" : "";
-$retScopeParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+$dealerScopeSql = $selectedUserId ? " AND created_by = ?" : "";
+$dealerScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
+
+$expScopeSql = $selectedUserId ? " AND recorded_by = ?" : "";
+$expScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
+
+$retScopeSql = $selectedUserId ? " AND created_by = ?" : "";
+$retScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
 // 1. Sales & Revenue Metrics for selected range (NO cost, NO profit!)
 $salesStmt = $pdo->prepare("SELECT 
@@ -120,8 +146,8 @@ $cashOutflow = (float) $dealerData['cash_dealer_paid'] + (float) $expData['cash_
 $expectedDrawerCash = $cashInflow - $cashOutflow;
 
 // 6. Day-by-Day performance table & trend data (NO cost, NO profit!)
-$daysScopeSql = ($scope === 'my') ? " AND s.operator_id = ?" : "";
-$daysScopeParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+$daysScopeSql = $selectedUserId ? " AND s.operator_id = ?" : "";
+$daysScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
 $daysQuery = $pdo->prepare("SELECT 
     DATE(s.created_at) as day_date,
@@ -152,8 +178,8 @@ foreach ($daysList as $d) {
 }
 
 // 7. Top Selling Products (Filtered to revenue & quantity only - NO profit/cost!)
-$topProdScopeSql = ($scope === 'my') ? " AND s.operator_id = ?" : "";
-$topProdParams = ($scope === 'my') ? [$startDate, $endDate, $user['id']] : [$startDate, $endDate];
+$topProdScopeSql = $selectedUserId ? " AND s.operator_id = ?" : "";
+$topProdParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
 $topProductsStmt = $pdo->prepare("SELECT 
     p.name, 
@@ -183,8 +209,8 @@ include __DIR__ . '/../includes/header.php';
                     <h2 style="font-size: 19px; font-weight: 800; color: var(--text-primary); margin: 0;">
                         Daily Sales & Drawer Hisab
                     </h2>
-                    <span class="badge <?= $scope === 'my' ? 'badge-primary' : 'badge-gray' ?>" style="font-size: 11.5px;">
-                        <?= $scope === 'my' ? 'My Counter Only (' . e($user['username']) . ')' : 'All Counters (Store Drawer)' ?>
+                    <span class="badge <?= $selectedUserId ? 'badge-primary' : 'badge-gray' ?>" style="font-size: 11.5px;">
+                        <?= $selectedUserId ? 'Counter: ' . e($selectedUserName) : 'All Counters (Store Drawer)' ?>
                     </span>
                 </div>
                 <p class="text-muted" style="font-size: 12.5px; margin-top: 3px;">
@@ -196,11 +222,11 @@ include __DIR__ . '/../includes/header.php';
 
             <!-- Preset Filters -->
             <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                <a href="/POS_software/operator/analytics.php?preset=today&scope=<?= urlencode($scope) ?>" class="btn btn-sm <?= $preset === 'today' ? 'btn-primary' : 'btn-light' ?>">Today (Aj)</a>
-                <a href="/POS_software/operator/analytics.php?preset=yesterday&scope=<?= urlencode($scope) ?>" class="btn btn-sm <?= $preset === 'yesterday' ? 'btn-primary' : 'btn-light' ?>">Yesterday</a>
-                <a href="/POS_software/operator/analytics.php?preset=3days&scope=<?= urlencode($scope) ?>" class="btn btn-sm <?= $preset === '3days' ? 'btn-primary' : 'btn-light' ?>">Last 3 Days (3 Din)</a>
-                <a href="/POS_software/operator/analytics.php?preset=7days&scope=<?= urlencode($scope) ?>" class="btn btn-sm <?= $preset === '7days' ? 'btn-primary' : 'btn-light' ?>">Last 7 Days</a>
-                <a href="/POS_software/operator/analytics.php?preset=this_month&scope=<?= urlencode($scope) ?>" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-light' ?>">This Month</a>
+                <a href="/POS_software/operator/analytics.php?preset=today&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === 'today' ? 'btn-primary' : 'btn-light' ?>">Today (Aj)</a>
+                <a href="/POS_software/operator/analytics.php?preset=yesterday&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === 'yesterday' ? 'btn-primary' : 'btn-light' ?>">Yesterday</a>
+                <a href="/POS_software/operator/analytics.php?preset=3days&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === '3days' ? 'btn-primary' : 'btn-light' ?>">Last 3 Days (3 Din)</a>
+                <a href="/POS_software/operator/analytics.php?preset=7days&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === '7days' ? 'btn-primary' : 'btn-light' ?>">Last 7 Days</a>
+                <a href="/POS_software/operator/analytics.php?preset=this_month&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-light' ?>">This Month</a>
             </div>
         </div>
 
@@ -219,9 +245,17 @@ include __DIR__ . '/../includes/header.php';
 
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <label style="margin: 0; font-size: 12.5px; font-weight: 600;">Scope:</label>
-                    <select name="scope" class="form-control" style="width: 175px; padding: 6px 10px;">
-                        <option value="all" <?= $scope === 'all' ? 'selected' : '' ?>>All Counters (Overall)</option>
-                        <option value="my" <?= $scope === 'my' ? 'selected' : '' ?>>My Sales (<?= e($user['username']) ?>)</option>
+                    <select name="scope" class="form-control" style="width: 220px; padding: 6px 10px;">
+                        <option value="all" <?= $scope === 'all' ? 'selected' : '' ?>>All Counters (Overall Store)</option>
+                        <?php if ($user['role'] === 'Admin'): ?>
+                            <?php foreach ($allCashiers as $cashier): ?>
+                                <option value="<?= $cashier['id'] ?>" <?= ((string)$scope === (string)$cashier['id'] || $selectedUserId === (int)$cashier['id']) ? 'selected' : '' ?>>
+                                    Counter: <?= e($cashier['full_name'] ?: $cashier['username']) ?> (<?= e($cashier['role']) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <option value="my" <?= $scope === 'my' ? 'selected' : '' ?>>My Sales (<?= e($user['username']) ?>)</option>
+                        <?php endif; ?>
                     </select>
                 </div>
 
