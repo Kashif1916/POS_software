@@ -12,9 +12,84 @@ function e(mixed $value): string
     return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
+function detect_base_url(): string
+{
+    if (defined('CUSTOM_BASE_PATH')) {
+        return rtrim((string) CUSTOM_BASE_PATH, '/');
+    }
+
+    $docRoot = isset($_SERVER['DOCUMENT_ROOT']) && $_SERVER['DOCUMENT_ROOT'] !== '' 
+        ? str_replace('\\', '/', realpath($_SERVER['DOCUMENT_ROOT']) ?: $_SERVER['DOCUMENT_ROOT']) 
+        : '';
+    $appRoot = str_replace('\\', '/', realpath(__DIR__ . '/..') ?: (__DIR__ . '/..'));
+
+    if ($docRoot !== '' && str_starts_with($appRoot, $docRoot)) {
+        $sub = substr($appRoot, strlen($docRoot));
+        return rtrim(str_replace('\\', '/', $sub), '/');
+    }
+
+    $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+    if ($scriptName !== '') {
+        foreach (['/admin/', '/operator/', '/includes/', '/assets/', '/config/'] as $folder) {
+            $pos = strpos($scriptName, $folder);
+            if ($pos !== false) {
+                return rtrim(substr($scriptName, 0, $pos), '/');
+            }
+        }
+        $dir = dirname($scriptName);
+        if ($dir !== '/' && $dir !== '\\' && $dir !== '.') {
+            return rtrim($dir, '/');
+        }
+    }
+
+    return '';
+}
+
+function base_url(string $path = ''): string
+{
+    static $base = null;
+    if ($base === null) {
+        $base = detect_base_url();
+    }
+
+    if (str_starts_with($path, '/POS_software/') || $path === '/POS_software') {
+        $path = substr($path, strlen('/POS_software'));
+    }
+
+    if ($base !== '' && (str_starts_with($path, $base . '/') || $path === $base)) {
+        return $path;
+    }
+
+    $cleanPath = '/' . ltrim($path, '/');
+    if ($path === '' || $path === '/') {
+        return $base === '' ? '/' : $base . '/';
+    }
+    return $base . $cleanPath;
+}
+
+function url(string $path = ''): string
+{
+    return base_url($path);
+}
+
 function redirect(string $path): never
 {
-    header('Location: ' . $path);
+    if (preg_match('#^https?://#i', $path)) {
+        header('Location: ' . $path);
+        exit;
+    }
+
+    $base = base_url('');
+    if ($base !== '' && (str_starts_with($path, $base . '/') || $path === $base)) {
+        header('Location: ' . $path);
+        exit;
+    }
+
+    if (str_starts_with($path, '/POS_software/') || $path === '/POS_software') {
+        $path = substr($path, strlen('/POS_software'));
+    }
+
+    header('Location: ' . url($path));
     exit;
 }
 
@@ -38,17 +113,22 @@ function current_user(): ?array
 function is_admin(): bool
 {
     $user = current_user();
-    return $user && ($user['role'] ?? '') === 'Admin';
+    return $user && in_array($user['role'] ?? '', ['Admin', 'Master'], true);
+}
+
+function is_master(): bool
+{
+    $user = current_user();
+    return $user && ($user['role'] ?? '') === 'Master';
 }
 
 function require_login(?string $role = null): void
 {
     $user = current_user();
     if (!$user) {
-        redirect('/POS_software/login.php');
+        redirect('/login.php');
     }
 
-    // Check if user is frozen in DB
     $pdo = db();
     $stmt = $pdo->prepare("SELECT status FROM users WHERE id = ? LIMIT 1");
     $stmt->execute([$user['id']]);
@@ -58,12 +138,25 @@ function require_login(?string $role = null): void
         session_destroy();
         session_start();
         flash('error', 'Your account has been frozen by an administrator.');
-        redirect('/POS_software/login.php');
+        redirect('/login.php');
     }
 
-    if ($role !== null && $user['role'] !== $role) {
-        flash('error', 'You do not have permission to access that page.');
-        redirect($user['role'] === 'Admin' ? '/POS_software/admin/dashboard.php' : '/POS_software/operator/index.php');
+    if ($role !== null) {
+        $allowed = false;
+        if ($role === 'Master') {
+            $allowed = ($user['role'] === 'Master');
+        } elseif ($role === 'Admin') {
+            $allowed = in_array($user['role'], ['Admin', 'Master'], true);
+        } elseif ($role === 'Operator') {
+            $allowed = in_array($user['role'], ['Operator', 'Admin', 'Master'], true);
+        } else {
+            $allowed = ($user['role'] === $role);
+        }
+
+        if (!$allowed) {
+            flash('error', 'You do not have permission to access that page.');
+            redirect(in_array($user['role'], ['Admin', 'Master'], true) ? '/admin/dashboard.php' : '/operator/index.php');
+        }
     }
 }
 
@@ -86,9 +179,9 @@ function get_store_settings(PDO $pdo): array
     $row = $pdo->query("SELECT * FROM store_settings WHERE id = 1 LIMIT 1")->fetch();
     if (!$row) {
         $row = [
-            'store_name' => 'Super POS Mart',
-            'phone' => '0300-1234567',
-            'address' => 'Shop # 12, Main Commercial Market',
+            'store_name' => 'Al Mehbob Traders',
+            'phone' => '0309-7107977',
+            'address' => 'Janubi Bazar Jauharabad',
             'currency_symbol' => 'Rs',
             'receipt_footer' => 'Thank you for shopping with us! Items can be returned within 3 days with receipt.'
         ];
@@ -131,7 +224,6 @@ function post_float(string $key, float $default = 0.0): float
 
 function today_stats(PDO $pdo): array
 {
-    // Today's Sales breakdown
     $salesRow = $pdo->query("SELECT
         COALESCE(SUM(CASE WHEN status = 'Completed' THEN net_payable ELSE 0 END), 0) AS total_sales,
         COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) AS cash_sales,
@@ -141,54 +233,41 @@ function today_stats(PDO $pdo): array
         COUNT(CASE WHEN status = 'Completed' THEN 1 END) AS invoice_count
         FROM sales WHERE DATE(created_at) = CURDATE()")->fetch();
 
-    // Cost of goods sold today for profit calculation
     $cogsRow = $pdo->query("SELECT
         COALESCE(SUM(si.cost_price * si.quantity), 0) AS total_cogs
         FROM sale_items si
         JOIN sales s ON s.id = si.sale_id
         WHERE s.status = 'Completed' AND DATE(s.created_at) = CURDATE()")->fetch();
 
-    // Dealer payments today
     $dealerRow = $pdo->query("SELECT
         COALESCE(SUM(paid_amount), 0) AS total_paid,
         COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN paid_amount ELSE 0 END), 0) AS cash_paid,
         COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN paid_amount ELSE 0 END), 0) AS bank_paid
         FROM dealer_payments WHERE date = CURDATE()")->fetch();
 
-    // Expenses today
     $expenseRow = $pdo->query("SELECT
         COALESCE(SUM(amount), 0) AS total_expense,
         COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN amount ELSE 0 END), 0) AS cash_expense,
         COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN amount ELSE 0 END), 0) AS bank_expense
         FROM expenses WHERE date = CURDATE()")->fetch();
 
-    // Udhar payments recovered today
     $udharRecRow = $pdo->query("SELECT
         COALESCE(SUM(amount_paid), 0) AS total_recovered,
         COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN amount_paid ELSE 0 END), 0) AS cash_recovered,
         COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN amount_paid ELSE 0 END), 0) AS bank_recovered
         FROM udhar_payments WHERE date = CURDATE()")->fetch();
 
-    // Returns today
     $returnsRow = $pdo->query("SELECT
         COUNT(*) AS returns_count,
         COALESCE(SUM(refund_amount), 0) AS total_refund
         FROM returns WHERE date = CURDATE()")->fetch();
 
-    // Low stock count
     $lowStockCount = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE stock_quantity <= min_alert_limit")->fetchColumn();
-
-    // Overall outstanding Udhar balance
     $totalPendingUdhar = (float) $pdo->query("SELECT COALESCE(SUM(balance_amount), 0) FROM udhar_ledger WHERE status = 'Pending'")->fetchColumn();
 
-    // Drawer Cash calculation:
-    // (Cash Sales + Cash Udhar Collected) - (Cash Dealer Payments + Cash Expenses + Cash Refunds)
     $drawerCash = ((float) $salesRow['cash_sales'] + (float) $udharRecRow['cash_recovered'])
                 - ((float) $dealerRow['cash_paid'] + (float) $expenseRow['cash_expense'] + (float) $returnsRow['total_refund']);
 
-    // Profit calculation:
-    // Gross Profit = Total Sales - Cost of Goods Sold
-    // Net Profit = Gross Profit - Expenses - Returns Refunded
     $grossProfit = (float) $salesRow['total_sales'] - (float) $cogsRow['total_cogs'];
     $netProfit = $grossProfit - (float) $expenseRow['total_expense'] - (float) $returnsRow['total_refund'];
 
@@ -217,3 +296,64 @@ function today_stats(PDO $pdo): array
         'pending_udhar_balance' => $totalPendingUdhar
     ];
 }
+
+/**
+ * PERSISTENT SOFTWARE LOCK FUNCTIONS
+ */
+function get_active_software_lock(): ?array
+{
+    static $lockChecked = false;
+    static $activeLock = null;
+
+    if ($lockChecked) {
+        return $activeLock;
+    }
+    $lockChecked = true;
+
+    try {
+        $pdo = db();
+        // Fetch any lock triggered on or before today that has NOT been unlocked yet
+        $stmt = $pdo->prepare("SELECT * FROM software_locks WHERE lock_date <= CURDATE() AND is_active = 1 AND is_unlocked = 0 ORDER BY lock_date ASC LIMIT 1");
+        $stmt->execute();
+        $row = $stmt->fetch();
+        $activeLock = $row ?: null;
+    } catch (Throwable $e) {
+        $activeLock = null;
+    }
+
+    return $activeLock;
+}
+
+function is_software_locked(): bool
+{
+    return (get_active_software_lock() !== null);
+}
+
+function check_software_lock(): void
+{
+    if (php_sapi_name() === 'cli') {
+        return;
+    }
+
+    $scriptName = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    // Allow lock screen itself and logout script
+    if (in_array($scriptName, ['lock.php', 'logout.php'], true)) {
+        return;
+    }
+
+    if (!is_software_locked()) {
+        return;
+    }
+
+    // Allow Master user to navigate admin pages to manage locks/settings
+    $normalizedScript = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+    if (is_master() && str_contains($normalizedScript, '/admin/')) {
+        return;
+    }
+
+    // Everyone else (including login.php, operator, unauthenticated visitors) goes straight to lock screen
+    redirect('/lock.php');
+}
+
+// Enforce software lock automatically on every request
+check_software_lock();

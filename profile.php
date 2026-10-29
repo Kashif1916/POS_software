@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (password_verify($currentPassword, $hash)) {
                 $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-                $update = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
-                $update->execute([$newHash, $user['id']]);
+                $update = $pdo->prepare("UPDATE users SET password_hash = ?, plain_password = ? WHERE id = ?");
+                $update->execute([$newHash, $newPassword, $user['id']]);
                 flash('success', 'Your password has been updated successfully!');
             } else {
                 flash('error', 'Current password is incorrect.');
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    redirect('/POS_software/profile.php');
+    redirect('/profile.php');
 }
 
 // Fetch user fresh info
@@ -75,7 +75,13 @@ include __DIR__ . '/includes/header.php';
 
                         <div class="form-group mb-3">
                             <label>Role</label>
-                            <span class="badge badge-<?= $userInfo['role'] === 'Admin' ? 'primary' : 'info' ?>"><?= e($userInfo['role']) ?></span>
+                            <?php if ($userInfo['role'] === 'Master'): ?>
+                                <span class="badge" style="background: #f3e8ff; color: #7e22ce; font-weight: 700;">👑 Master</span>
+                            <?php elseif ($userInfo['role'] === 'Admin'): ?>
+                                <span class="badge badge-primary">Admin</span>
+                            <?php else: ?>
+                                <span class="badge badge-info">Operator</span>
+                            <?php endif; ?>
                         </div>
 
                         <div class="form-group mb-3">

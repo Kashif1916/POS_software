@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         flash('error', 'Please enter a valid expense title and amount.');
     }
-    redirect('/POS_software/operator/expenses.php');
+    redirect('/operator/expenses.php');
 }
 
 // Fetch today's expenses recorded by operator

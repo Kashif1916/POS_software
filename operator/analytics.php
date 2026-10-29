@@ -222,11 +222,11 @@ include __DIR__ . '/../includes/header.php';
 
             <!-- Preset Filters -->
             <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                <a href="/POS_software/operator/analytics.php?preset=today&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === 'today' ? 'btn-primary' : 'btn-light' ?>">Today (Aj)</a>
-                <a href="/POS_software/operator/analytics.php?preset=yesterday&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === 'yesterday' ? 'btn-primary' : 'btn-light' ?>">Yesterday</a>
-                <a href="/POS_software/operator/analytics.php?preset=3days&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === '3days' ? 'btn-primary' : 'btn-light' ?>">Last 3 Days (3 Din)</a>
-                <a href="/POS_software/operator/analytics.php?preset=7days&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === '7days' ? 'btn-primary' : 'btn-light' ?>">Last 7 Days</a>
-                <a href="/POS_software/operator/analytics.php?preset=this_month&scope=<?= urlencode((string)$scope) ?>" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-light' ?>">This Month</a>
+                <a href="<?= url('/operator/analytics.php?preset=today&scope=' . urlencode((string)$scope)) ?>" class="btn btn-sm <?= $preset === 'today' ? 'btn-primary' : 'btn-light' ?>">Today (Aj)</a>
+                <a href="<?= url('/operator/analytics.php?preset=yesterday&scope=' . urlencode((string)$scope)) ?>" class="btn btn-sm <?= $preset === 'yesterday' ? 'btn-primary' : 'btn-light' ?>">Yesterday</a>
+                <a href="<?= url('/operator/analytics.php?preset=3days&scope=' . urlencode((string)$scope)) ?>" class="btn btn-sm <?= $preset === '3days' ? 'btn-primary' : 'btn-light' ?>">Last 3 Days (3 Din)</a>
+                <a href="<?= url('/operator/analytics.php?preset=7days&scope=' . urlencode((string)$scope)) ?>" class="btn btn-sm <?= $preset === '7days' ? 'btn-primary' : 'btn-light' ?>">Last 7 Days</a>
+                <a href="<?= url('/operator/analytics.php?preset=this_month&scope=' . urlencode((string)$scope)) ?>" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-light' ?>">This Month</a>
             </div>
         </div>
 
@@ -247,7 +247,7 @@ include __DIR__ . '/../includes/header.php';
                     <label style="margin: 0; font-size: 12.5px; font-weight: 600;">Scope:</label>
                     <select name="scope" class="form-control" style="width: 220px; padding: 6px 10px;">
                         <option value="all" <?= $scope === 'all' ? 'selected' : '' ?>>All Counters (Overall Store)</option>
-                        <?php if ($user['role'] === 'Admin'): ?>
+                        <?php if (in_array($user['role'], ['Admin', 'Master'], true)): ?>
                             <?php foreach ($allCashiers as $cashier): ?>
                                 <option value="<?= $cashier['id'] ?>" <?= ((string)$scope === (string)$cashier['id'] || $selectedUserId === (int)$cashier['id']) ? 'selected' : '' ?>>
                                     Counter: <?= e($cashier['full_name'] ?: $cashier['username']) ?> (<?= e($cashier['role']) ?>)

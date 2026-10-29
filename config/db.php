@@ -1,10 +1,34 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * DATABASE CONFIGURATION
+ * 
+ * Local XAMPP Default:
+ *   DB_HOST = '127.0.0.1' or 'localhost'
+ *   DB_NAME = 'pos_software'
+ *   DB_USER = 'root'
+ *   DB_PASS = ''
+ * 
+ * InfinityFree Hosting Example:
+ *   DB_HOST = 'sqlxxx.infinityfree.com' (check your InfinityFree vPanel -> MySQL Details)
+ *   DB_NAME = 'epiz_xxxxxx_pos_software' (check vPanel -> MySQL Databases)
+ *   DB_USER = 'epiz_xxxxxx'
+ *   DB_PASS = 'Your vPanel Password'
+ */
 const DB_HOST = '127.0.0.1';
 const DB_NAME = 'pos_software';
 const DB_USER = 'root';
 const DB_PASS = '';
+
+/**
+ * OPTIONAL: Base path override.
+ * Leave as null to auto-detect base path dynamically (works for both InfinityFree and XAMPP).
+ * If you ever need to manually force a specific base path, uncomment and set below:
+ * define('CUSTOM_BASE_PATH', ''); // For domain root, e.g. https://yourdomain.com/
+ * define('CUSTOM_BASE_PATH', '/POS_software'); // For subfolder
+ */
+// define('CUSTOM_BASE_PATH', '');
 
 function db(): PDO
 {
@@ -14,27 +38,50 @@ function db(): PDO
     }
 
     try {
-        // Connect directly to MySQL
-        $pdo = new PDO(
-            'mysql:host=' . DB_HOST . ';charset=utf8mb4',
-            DB_USER,
-            DB_PASS,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ]
-        );
+        // Attempt connecting directly with dbname specified in DSN (standard for live shared hosting like InfinityFree)
+        try {
+            $pdo = new PDO(
+                'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+                DB_USER,
+                DB_PASS,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]
+            );
+        } catch (PDOException $ex) {
+            // If unknown database error (error code 1049) on local development, try to create it automatically
+            if ($ex->getCode() == 1049 || str_contains($ex->getMessage(), 'Unknown database')) {
+                $tempPdo = new PDO(
+                    'mysql:host=' . DB_HOST . ';charset=utf8mb4',
+                    DB_USER,
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+                $tempPdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                unset($tempPdo);
 
-        // Ensure database exists
-        $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-        $pdo->exec("USE `" . DB_NAME . "`");
+                $pdo = new PDO(
+                    'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+                    DB_USER,
+                    DB_PASS,
+                    [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_EMULATE_PREPARES => false,
+                    ]
+                );
+            } else {
+                throw $ex;
+            }
+        }
 
         // Ensure all required tables and columns exist automatically
         ensure_schema($pdo);
 
     } catch (PDOException $e) {
-        die('Database Connection Failed: ' . htmlspecialchars($e->getMessage()));
+        die('Database Connection Failed: ' . htmlspecialchars($e->getMessage()) . '<br><br><b>Tip for InfinityFree:</b> Please check your database credentials in <code>config/db.php</code> (DB_HOST, DB_NAME, DB_USER, DB_PASS).');
     }
 
     return $pdo;
@@ -46,14 +93,26 @@ function ensure_schema(PDO $pdo): void
     if ($migrated) return;
 
     // Users table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+   $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(80) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
+        plain_password VARCHAR(255) NULL,
         full_name VARCHAR(120) NULL,
-        role ENUM('Admin','Operator') NOT NULL DEFAULT 'Operator',
+        role VARCHAR(30) NOT NULL DEFAULT 'Operator',
         status ENUM('Active','Frozen') NOT NULL DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS software_locks (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        lock_date DATE NOT NULL,
+        unlock_password VARCHAR(255) NOT NULL,
+        lock_message TEXT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        is_unlocked TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB");
 
     // Categories table
@@ -195,11 +254,24 @@ function ensure_schema(PDO $pdo): void
     // Store settings table
     $pdo->exec("CREATE TABLE IF NOT EXISTS store_settings (
         id INT PRIMARY KEY DEFAULT 1,
-        store_name VARCHAR(150) NOT NULL DEFAULT 'Super POS Mart',
-        phone VARCHAR(50) NOT NULL DEFAULT '0300-1234567',
-        address VARCHAR(255) NOT NULL DEFAULT 'Shop # 12, Main Commercial Market',
+        store_name VARCHAR(150) NOT NULL DEFAULT 'Al Mehbob Traders',
+        phone VARCHAR(50) NOT NULL DEFAULT '0309-7107977',
+        address VARCHAR(255) NOT NULL DEFAULT 'Janubi Bazar Jauharabad',
         currency_symbol VARCHAR(10) NOT NULL DEFAULT 'Rs',
         receipt_footer VARCHAR(255) NOT NULL DEFAULT 'Thank you for shopping with us! Items can be returned within 3 days with receipt.'
+    ) ENGINE=InnoDB");
+
+    // Software locks table (for master scheduled system lockouts)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS software_locks (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        lock_date DATE NOT NULL UNIQUE,
+        unlock_password VARCHAR(255) NOT NULL,
+        lock_message TEXT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        is_unlocked TINYINT(1) NOT NULL DEFAULT 0,
+        unlocked_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB");
 
     // Udhar Customers (for customer credit registry and limit enforcement)
@@ -215,6 +287,17 @@ function ensure_schema(PDO $pdo): void
 
     // Dynamic Column & Precision Migrations for existing tables
     try {
+        // Users table migrations: role column and plain_password
+        $userCols = $pdo->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('plain_password', $userCols)) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NULL AFTER password_hash");
+        }
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN role VARCHAR(30) NOT NULL DEFAULT 'Operator'");
+
+        // Populate plain_password for known defaults if empty
+        $pdo->exec("UPDATE users SET plain_password = 'admin123' WHERE username = 'admin' AND (plain_password IS NULL OR plain_password = '')");
+        $pdo->exec("UPDATE users SET plain_password = 'operator123' WHERE username = 'operator' AND (plain_password IS NULL OR plain_password = '')");
+
         // Products table migrations: unit, expiry_date, and decimal stock
         $prodCols = $pdo->query("SHOW COLUMNS FROM products")->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('unit', $prodCols)) {
@@ -242,29 +325,48 @@ function ensure_schema(PDO $pdo): void
         if (!in_array('customer_id', $udharLedgerCols)) {
             $pdo->exec("ALTER TABLE udhar_ledger ADD COLUMN customer_id INT UNSIGNED NULL AFTER sale_id");
         }
+
+        // Software locks migrations: is_unlocked and unlocked_at
+        $lockCols = $pdo->query("SHOW COLUMNS FROM software_locks")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('is_unlocked', $lockCols)) {
+            $pdo->exec("ALTER TABLE software_locks ADD COLUMN is_unlocked TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active");
+        }
+        if (!in_array('unlocked_at', $lockCols)) {
+            $pdo->exec("ALTER TABLE software_locks ADD COLUMN unlocked_at DATETIME NULL AFTER is_unlocked");
+        }
     } catch (Throwable $e) {
         // Log migration note if already modified
     }
 
-    // Seed default settings if empty
+    // Seed or update default settings
     $chkSettings = $pdo->query("SELECT COUNT(*) FROM store_settings")->fetchColumn();
     if ($chkSettings == 0) {
         $pdo->exec("INSERT INTO store_settings (id, store_name, phone, address, currency_symbol, receipt_footer) 
-            VALUES (1, 'Super POS Mart', '0300-1234567', 'Shop # 12, Main Commercial Market', 'Rs', 'Thank you for shopping with us! Items can be returned within 3 days with receipt.')");
+            VALUES (1, 'Al Mehbob Traders', '0309-7107977', 'Janubi Bazar Jauharabad', 'Rs', 'Thank you for shopping with us! Items can be returned within 3 days with receipt.')");
+    } else {
+        // If settings still has the default old store name, update to user's desired store name
+        $pdo->exec("UPDATE store_settings SET store_name = 'Al Mehbob Traders', phone = '0309-7107977', address = 'Janubi Bazar Jauharabad' WHERE id = 1 AND store_name = 'Super POS Mart'");
+    }
+
+    // Seed default master if empty
+    $chkMaster = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'Master' OR username = 'master'")->fetchColumn();
+    if ($chkMaster == 0) {
+        $hash = password_hash('master123', PASSWORD_DEFAULT);
+        $pdo->prepare("INSERT INTO users (username, password_hash, plain_password, full_name, role, status) VALUES ('master', ?, 'master123', 'Master User', 'Master', 'Active')")->execute([$hash]);
     }
 
     // Seed default admin if empty
     $chkAdmin = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'Admin'")->fetchColumn();
     if ($chkAdmin == 0) {
         $hash = password_hash('admin123', PASSWORD_DEFAULT);
-        $pdo->prepare("INSERT INTO users (username, password_hash, full_name, role, status) VALUES ('admin', ?, 'Administrator', 'Admin', 'Active')")->execute([$hash]);
+        $pdo->prepare("INSERT INTO users (username, password_hash, plain_password, full_name, role, status) VALUES ('admin', ?, 'admin123', 'Administrator', 'Admin', 'Active')")->execute([$hash]);
     }
 
     // Seed default operator if empty
     $chkOp = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'Operator'")->fetchColumn();
     if ($chkOp == 0) {
         $hash = password_hash('operator123', PASSWORD_DEFAULT);
-        $pdo->prepare("INSERT INTO users (username, password_hash, full_name, role, status) VALUES ('operator', ?, 'Cashier Operator', 'Operator', 'Active')")->execute([$hash]);
+        $pdo->prepare("INSERT INTO users (username, password_hash, plain_password, full_name, role, status) VALUES ('operator', ?, 'operator123', 'Cashier Operator', 'Operator', 'Active')")->execute([$hash]);
     }
 
     $migrated = true;

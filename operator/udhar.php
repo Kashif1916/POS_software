@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
                 flash('success', "Payment of Rs " . money($amount) . " received from '{$udhar['buyer_name']}'! Receipt # $receiptNo");
-                redirect("/POS_software/print_udhar_receipt.php?id=$paymentId&autoprint=1");
+                redirect("/print_udhar_receipt.php?id=$paymentId&autoprint=1");
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 flash('error', $e->getMessage());
@@ -67,10 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash('error', 'Customer name is required.');
         }
-        redirect('/POS_software/operator/udhar.php?tab=customers');
+        redirect('/operator/udhar.php?tab=customers');
     }
 
-    redirect('/POS_software/operator/udhar.php');
+    redirect('/operator/udhar.php');
 }
 
 // Summary Metrics
@@ -132,10 +132,10 @@ include __DIR__ . '/../includes/header.php';
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <!-- Tab Navigation -->
         <div style="display: flex; gap: 4px; background: #e2e8f0; padding: 3px; border-radius: 8px;">
-            <a href="/POS_software/operator/udhar.php?tab=invoices" class="btn btn-sm <?= $activeTab === 'invoices' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
+            <a href="<?= url('/operator/udhar.php?tab=invoices') ?>" class="btn btn-sm <?= $activeTab === 'invoices' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
                 📑 Udhar Bills (<?= count($udhars) ?>)
             </a>
-            <a href="/POS_software/operator/udhar.php?tab=customers" class="btn btn-sm <?= $activeTab === 'customers' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
+            <a href="<?= url('/operator/udhar.php?tab=customers') ?>" class="btn btn-sm <?= $activeTab === 'customers' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
                 👥 Udhar Customers & Limits (<?= count($customers) ?>)
             </a>
         </div>
@@ -147,9 +147,9 @@ include __DIR__ . '/../includes/header.php';
             </div>
 
             <div style="display: flex; gap: 6px;">
-                <a href="/POS_software/operator/udhar.php?tab=invoices&status=pending" class="btn btn-sm <?= $statusFilter === 'pending' ? 'btn-warning' : 'btn-light' ?>">Pending Bills</a>
-                <a href="/POS_software/operator/udhar.php?tab=invoices&status=cleared" class="btn btn-sm <?= $statusFilter === 'cleared' ? 'btn-success' : 'btn-light' ?>">Cleared Bills</a>
-                <a href="/POS_software/operator/udhar.php?tab=invoices&status=all" class="btn btn-sm <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-light' ?>">All Bills</a>
+                <a href="<?= url('/operator/udhar.php?tab=invoices&status=pending') ?>" class="btn btn-sm <?= $statusFilter === 'pending' ? 'btn-warning' : 'btn-light' ?>">Pending Bills</a>
+                <a href="<?= url('/operator/udhar.php?tab=invoices&status=cleared') ?>" class="btn btn-sm <?= $statusFilter === 'cleared' ? 'btn-success' : 'btn-light' ?>">Cleared Bills</a>
+                <a href="<?= url('/operator/udhar.php?tab=invoices&status=all') ?>" class="btn btn-sm <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-light' ?>">All Bills</a>
             </div>
         <?php else: ?>
             <div class="search-box">
@@ -285,7 +285,7 @@ include __DIR__ . '/../includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="/POS_software/print_invoice.php?invoice=<?= urlencode($u['invoice_number']) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
+                                    <a href="<?= url('/print_invoice.php?invoice=' . urlencode($u['invoice_number'])) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
                                         <?= e($u['invoice_number']) ?>
                                     </a>
                                 </td>
@@ -404,7 +404,7 @@ include __DIR__ . '/../includes/header.php';
                                 <td><span class="badge badge-<?= $rec['payment_mode'] === 'Cash' ? 'success' : 'info' ?>"><?= e($rec['payment_mode']) ?></span></td>
                                 <td class="text-right font-bold text-success">Rs <?= money($rec['amount_paid']) ?></td>
                                 <td class="text-right">
-                                    <a href="/POS_software/print_udhar_receipt.php?id=<?= $rec['id'] ?>" target="_blank" class="btn btn-sm btn-light">
+                                    <a href="<?= url('/print_udhar_receipt.php?id=' . $rec['id']) ?>" target="_blank" class="btn btn-sm btn-light">
                                         Print Slip
                                     </a>
                                 </td>

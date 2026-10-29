@@ -1,10 +1,16 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 
-if (current_user()) {
-    redirect(current_user()['role'] === 'Admin' ? '/POS_software/admin/dashboard.php' : '/POS_software/operator/index.php');
+// If software is locked, force redirect to lock screen
+if (is_software_locked()) {
+    redirect('/lock.php');
 }
 
+if (current_user()) {
+    redirect(in_array(current_user()['role'], ['Admin', 'Master'], true) ? '/admin/dashboard.php' : '/operator/index.php');
+}
+
+$settings = get_store_settings(db());
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'full_name' => $user['full_name'] ?? $user['username'],
                     'role' => $user['role'],
                 ];
-                redirect($user['role'] === 'Admin' ? '/POS_software/admin/dashboard.php' : '/POS_software/operator/index.php');
+                redirect(in_array($user['role'], ['Admin', 'Master'], true) ? '/admin/dashboard.php' : '/operator/index.php');
             }
         } else {
             $error = 'Invalid username or password.';
@@ -44,10 +50,10 @@ $flash = take_flash();
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign In · QuickPOS</title>
+    <title>Sign In · <?= e($settings['store_name']) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/POS_software/assets/css/style.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
 </head>
 <body class="auth-body">
     <div class="auth-wrapper">
@@ -60,7 +66,7 @@ $flash = take_flash();
                         <line x1="12" y1="17" x2="12" y2="21"></line>
                     </svg>
                 </div>
-                <h2>Super POS Mart</h2>
+                <h2><?= e($settings['store_name']) ?></h2>
                 <p>Point of Sale & Inventory Management</p>
             </div>
 
@@ -75,7 +81,7 @@ $flash = take_flash();
             <form method="post" class="auth-form">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" name="username" placeholder="Enter username (e.g. admin)" required autofocus>
+                    <input type="text" id="username" name="username" placeholder="Enter username " required autofocus>
                 </div>
 
                 <div class="form-group">
@@ -86,17 +92,7 @@ $flash = take_flash();
                 <button type="submit" class="btn btn-primary btn-block">Sign In to POS</button>
             </form>
 
-            <div class="demo-logins">
-                <p class="demo-title">Default Login Credentials:</p>
-                <div class="demo-badges">
-                    <div class="demo-box">
-                        <strong>Admin:</strong> <code>admin</code> / <code>admin123</code>
-                    </div>
-                    <div class="demo-box">
-                        <strong>Operator:</strong> <code>operator</code> / <code>operator123</code>
-                    </div>
-                </div>
-            </div>
+            
         </div>
     </div>
 </body>

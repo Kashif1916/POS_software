@@ -30,7 +30,7 @@ $autoprint = isset($_GET['autoprint']);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dealer Receipt #<?= e($payment['receipt_number']) ?></title>
-    <link rel="stylesheet" href="/POS_software/assets/css/style.css">
+    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
     <style>
         .thermal-receipt {
             width: 320px;
@@ -209,7 +209,7 @@ $autoprint = isset($_GET['autoprint']);
 
         <div class="thermal-footer">
             <p>Verified Payment Disbursement Voucher</p>
-            <p style="font-size: 9px; color: #555; margin-top: 3px;">Powered by QuickPOS</p>
+            <p style="font-size: 9px; color: #555; margin-top: 3px;"><?= e($settings['store_name']) ?> POS System</p>
         </div>
     </div>
 

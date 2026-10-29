@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    redirect('/POS_software/admin/products.php' . (isset($_GET['filter']) ? '?filter=' . urlencode($_GET['filter']) : ''));
+    redirect('/admin/products.php' . (isset($_GET['filter']) ? '?filter=' . urlencode($_GET['filter']) : ''));
 }
 
 // Fetch categories and dealers
@@ -175,11 +175,11 @@ include __DIR__ . '/../includes/header.php';
         </div>
 
         <div style="display: flex; gap: 6px;">
-            <a href="/POS_software/admin/products.php" class="btn btn-sm <?= empty($filter) ? 'btn-primary' : 'btn-light' ?>">All Products</a>
-            <a href="/POS_software/admin/products.php?filter=low" class="btn btn-sm <?= $filter === 'low' ? 'btn-danger' : 'btn-light' ?>">
+            <a href="<?= url('/admin/products.php') ?>" class="btn btn-sm <?= empty($filter) ? 'btn-primary' : 'btn-light' ?>">All Products</a>
+            <a href="<?= url('/admin/products.php?filter=low') ?>" class="btn btn-sm <?= $filter === 'low' ? 'btn-danger' : 'btn-light' ?>">
                 ⚠️ Low Stock Only (<?= $lowCount ?>)
             </a>
-            <a href="/POS_software/admin/products.php?filter=expired" class="btn btn-sm <?= $filter === 'expired' ? 'btn-danger' : 'btn-light' ?>" style="<?= $expiredCount > 0 ? 'background:#fee2e2; color:#991b1b; border:1px solid #f87171;' : '' ?>">
+            <a href="<?= url('/admin/products.php?filter=expired') ?>" class="btn btn-sm <?= $filter === 'expired' ? 'btn-danger' : 'btn-light' ?>" style="<?= $expiredCount > 0 ? 'background:#fee2e2; color:#991b1b; border:1px solid #f87171;' : '' ?>">
                 ⏳ Expired / Expiring Soon (<?= $expiredCount ?>)
             </a>
         </div>

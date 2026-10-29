@@ -176,13 +176,13 @@ include __DIR__ . '/../includes/header.php';
 <!-- Report Navigation Tabs & Toolbar -->
 <div class="filter-bar no-print">
     <div style="display: flex; gap: 8px;">
-        <a href="/POS_software/admin/reports.php?view=daily" class="btn <?= $view === 'daily' ? 'btn-primary' : 'btn-light' ?>">
+        <a href="<?= url('/admin/reports.php?view=daily') ?>" class="btn <?= $view === 'daily' ? 'btn-primary' : 'btn-light' ?>">
             📅 Daily Report
         </a>
-        <a href="/POS_software/admin/reports.php?view=monthly" class="btn <?= $view === 'monthly' ? 'btn-primary' : 'btn-light' ?>">
+        <a href="<?= url('/admin/reports.php?view=monthly') ?>" class="btn <?= $view === 'monthly' ? 'btn-primary' : 'btn-light' ?>">
             🗓️ Monthly Report
         </a>
-        <a href="/POS_software/admin/reports.php?view=yearly" class="btn <?= $view === 'yearly' ? 'btn-primary' : 'btn-light' ?>">
+        <a href="<?= url('/admin/reports.php?view=yearly') ?>" class="btn <?= $view === 'yearly' ? 'btn-primary' : 'btn-light' ?>">
             📊 Yearly Report
         </a>
     </div>
@@ -329,7 +329,7 @@ include __DIR__ . '/../includes/header.php';
                                     <td class="text-center"><span class="badge badge-<?= $inv['payment_mode'] === 'Cash' ? 'success' : ($inv['payment_mode'] === 'Bank' ? 'info' : 'warning') ?>"><?= e($inv['payment_mode']) ?></span></td>
                                     <td><?= e($inv['operator_name'] ?? 'System') ?></td>
                                     <td class="text-right">
-                                        <a href="/POS_software/print_invoice.php?invoice=<?= urlencode($inv['invoice_number']) ?>" target="_blank" class="btn btn-sm btn-light">Print</a>
+                                        <a href="<?= url('/print_invoice.php?invoice=' . urlencode($inv['invoice_number'])) ?>" target="_blank" class="btn btn-sm btn-light">Print</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -398,7 +398,7 @@ include __DIR__ . '/../includes/header.php';
                             ?>
                                 <tr>
                                     <td>
-                                        <a href="/POS_software/admin/reports.php?view=daily&date=<?= $md['day_date'] ?>" style="color: var(--primary); font-weight: 700;">
+                                        <a href="<?= url('/admin/reports.php?view=daily&date=' . $md['day_date']) ?>" style="color: var(--primary); font-weight: 700;">
                                             <?= date('D, d M Y', strtotime($md['day_date'])) ?>
                                         </a>
                                     </td>

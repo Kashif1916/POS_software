@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'proce
 
             $pdo->commit();
             flash('success', "Return of {$returnQty}x '{$item['product_name']}' processed successfully! Refund amount: Rs " . money($refundAmount) . ". Stock restored to inventory.");
-            redirect("/POS_software/operator/returns.php?invoice=" . urlencode($invoiceSearch));
+            redirect("/operator/returns.php?invoice=" . urlencode($invoiceSearch));
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             flash('error', $e->getMessage());

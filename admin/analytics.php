@@ -198,10 +198,10 @@ include __DIR__ . '/../includes/header.php';
 
 <!-- View Switcher -->
 <div class="no-print" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
-    <a href="/POS_software/admin/analytics.php" class="btn btn-primary btn-sm" style="font-weight: 700;">
+    <a href="<?= url('/admin/analytics.php') ?>" class="btn btn-primary btn-sm" style="font-weight: 700;">
         📊 Financial & Profit Analytics (Selected Period)
     </a>
-    <a href="/POS_software/operator/analytics.php" class="btn btn-light btn-sm" style="font-weight: 700;">
+    <a href="<?= url('/operator/analytics.php') ?>" class="btn btn-light btn-sm" style="font-weight: 700;">
         💰 Sales & Drawer Hisab (Cashier Audit) &rarr;
     </a>
 </div>
@@ -221,12 +221,12 @@ include __DIR__ . '/../includes/header.php';
 
             <!-- Quick Preset Filter Buttons -->
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <a href="/POS_software/admin/analytics.php?preset=today" class="btn btn-sm <?= $preset === 'today' ? 'btn-primary' : 'btn-light' ?>">Today</a>
-                <a href="/POS_software/admin/analytics.php?preset=yesterday" class="btn btn-sm <?= $preset === 'yesterday' ? 'btn-primary' : 'btn-light' ?>">Yesterday</a>
-                <a href="/POS_software/admin/analytics.php?preset=3days" class="btn btn-sm <?= $preset === '3days' ? 'btn-primary' : 'btn-light' ?>">Last 3 Days</a>
-                <a href="/POS_software/admin/analytics.php?preset=7days" class="btn btn-sm <?= ($preset === '7days' || (!$preset && $startDate === date('Y-m-d', strtotime('-6 days')))) ? 'btn-primary' : 'btn-light' ?>">Last 7 Days</a>
-                <a href="/POS_software/admin/analytics.php?preset=30days" class="btn btn-sm <?= $preset === '30days' ? 'btn-primary' : 'btn-light' ?>">Last 30 Days</a>
-                <a href="/POS_software/admin/analytics.php?preset=this_month" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-light' ?>">This Month</a>
+                <a href="<?= url('/admin/analytics.php?preset=today') ?>" class="btn btn-sm <?= $preset === 'today' ? 'btn-primary' : 'btn-light' ?>">Today</a>
+                <a href="<?= url('/admin/analytics.php?preset=yesterday') ?>" class="btn btn-sm <?= $preset === 'yesterday' ? 'btn-primary' : 'btn-light' ?>">Yesterday</a>
+                <a href="<?= url('/admin/analytics.php?preset=3days') ?>" class="btn btn-sm <?= $preset === '3days' ? 'btn-primary' : 'btn-light' ?>">Last 3 Days</a>
+                <a href="<?= url('/admin/analytics.php?preset=7days') ?>" class="btn btn-sm <?= ($preset === '7days' || (!$preset && $startDate === date('Y-m-d', strtotime('-6 days')))) ? 'btn-primary' : 'btn-light' ?>">Last 7 Days</a>
+                <a href="<?= url('/admin/analytics.php?preset=30days') ?>" class="btn btn-sm <?= $preset === '30days' ? 'btn-primary' : 'btn-light' ?>">Last 30 Days</a>
+                <a href="<?= url('/admin/analytics.php?preset=this_month') ?>" class="btn btn-sm <?= $preset === 'this_month' ? 'btn-primary' : 'btn-light' ?>">This Month</a>
             </div>
         </div>
 
@@ -264,7 +264,7 @@ include __DIR__ . '/../includes/header.php';
                     Cash Inflow: <strong>Rs <?= money($cashInflow) ?></strong> (Sales: <?= money($salesData['cash_sales']) ?>, Udhar Recovered: <?= money($udharData['cash_recovered']) ?>) &minus; Cash Outflow: <strong>Rs <?= money($cashOutflow) ?></strong> (Expenses: <?= money($expData['cash_expenses']) ?>, Dealer: <?= money($dealerData['cash_dealer_paid']) ?>, Returns: <?= money($retData['total_refunds']) ?>)
                 </p>
             </div>
-            <a href="/POS_software/operator/analytics.php" class="btn btn-sm btn-success">View Detailed Drawer Audit &rarr;</a>
+            <a href="<?= url('/operator/analytics.php') ?>" class="btn btn-sm btn-success">View Detailed Drawer Audit &rarr;</a>
         </div>
     </div>
 </div>
@@ -551,7 +551,7 @@ include __DIR__ . '/../includes/header.php';
                                 ?>
                                     <tr>
                                         <td>
-                                            <a href="/POS_software/admin/reports.php?view=daily&date=<?= $d['day_date'] ?>" style="color: var(--primary); font-weight: 700;">
+                                            <a href="<?= url('/admin/reports.php?view=daily&date=' . $d['day_date']) ?>" style="color: var(--primary); font-weight: 700;">
                                                 <?= date('D, d M Y', strtotime($d['day_date'])) ?>
                                             </a>
                                         </td>

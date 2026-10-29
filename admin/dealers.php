@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
                 flash('success', "Payment of Rs " . money($amount) . " to {$dealer['name']} recorded successfully! Receipt # $receiptNo");
-                redirect("/POS_software/print_dealer_receipt.php?id=$paymentId&autoprint=1");
+                redirect("/print_dealer_receipt.php?id=$paymentId&autoprint=1");
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 flash('error', $e->getMessage());
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    redirect('/POS_software/admin/dealers.php');
+    redirect('/admin/dealers.php');
 }
 
 // Fetch dealers with total paid and active products count
@@ -280,7 +280,7 @@ include __DIR__ . '/../includes/header.php';
                                 <td><?= e($pay['created_by_user'] ?? 'System') ?></td>
                                 <td><small class="text-muted"><?= e($pay['notes'] ?: '—') ?></small></td>
                                 <td class="text-right">
-                                    <a href="/POS_software/print_dealer_receipt.php?id=<?= $pay['id'] ?>" target="_blank" class="btn btn-sm btn-light">
+                                    <a href="<?= url('/print_dealer_receipt.php?id=' . $pay['id']) ?>" target="_blank" class="btn btn-sm btn-light">
                                         Print Slip
                                     </a>
                                 </td>

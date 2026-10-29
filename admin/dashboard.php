@@ -73,7 +73,7 @@ include __DIR__ . '/../includes/header.php';
                 <span class="badge badge-danger" style="font-size: 13px; padding: 6px 12px;">⚠️ Stock Alert</span>
                 <strong><?= $stats['low_stock_count'] ?> product(s) are low in stock (below threshold limit).</strong>
             </div>
-            <a href="/POS_software/admin/products.php?filter=low" class="btn btn-sm btn-danger">View Low Stock Items</a>
+            <a href="<?= url('/admin/products.php?filter=low') ?>" class="btn btn-sm btn-danger">View Low Stock Items</a>
         </div>
     </div>
 <?php endif; ?>
@@ -86,7 +86,7 @@ include __DIR__ . '/../includes/header.php';
                 <span class="badge" style="background: #e11d48; color: #fff; font-size: 13px; padding: 6px 12px;">📅 Expiry Alert</span>
                 <strong><?= $expiryAlertTotal ?> product(s) are already expired or expiring within 30 days!</strong>
             </div>
-            <a href="/POS_software/admin/products.php?filter=expired" class="btn btn-sm" style="background: #e11d48; color: #fff;">View Expiring Products</a>
+            <a href="<?= url('/admin/products.php?filter=expired') ?>" class="btn btn-sm" style="background: #e11d48; color: #fff;">View Expiring Products</a>
         </div>
     </div>
 <?php endif; ?>
@@ -98,13 +98,13 @@ include __DIR__ . '/../includes/header.php';
         <p class="text-muted" style="font-size: 12.5px;">Live real-time summary for <?= date('d F Y') ?></p>
     </div>
     <div style="display: flex; gap: 8px;">
-        <a href="/POS_software/operator/index.php" class="btn btn-primary btn-sm">
+        <a href="<?= url('/operator/index.php') ?>" class="btn btn-primary btn-sm">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
             + POS Sale
         </a>
-        <a href="/POS_software/admin/products.php" class="btn btn-light btn-sm">+ Product</a>
-        <a href="/POS_software/admin/dealers.php" class="btn btn-light btn-sm">Pay Dealer</a>
-        <a href="/POS_software/admin/expenses.php" class="btn btn-light btn-sm">+ Expense</a>
+        <a href="<?= url('/admin/products.php') ?>" class="btn btn-light btn-sm">+ Product</a>
+        <a href="<?= url('/admin/dealers.php') ?>" class="btn btn-light btn-sm">Pay Dealer</a>
+        <a href="<?= url('/admin/expenses.php') ?>" class="btn btn-light btn-sm">+ Expense</a>
     </div>
 </div>
 
@@ -244,7 +244,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="card">
             <div class="card-header">
                 <h3>Low Stock Alert</h3>
-                <a href="/POS_software/admin/products.php?filter=low" class="btn btn-sm btn-light">Manage All</a>
+                <a href="<?= url('/admin/products.php?filter=low') ?>" class="btn btn-sm btn-light">Manage All</a>
             </div>
             <div class="card-body" style="padding: 0;">
                 <div class="table-responsive">
@@ -267,7 +267,7 @@ include __DIR__ . '/../includes/header.php';
                                         <span class="badge badge-danger"><?= $lp['stock_quantity'] ?> left</span>
                                     </td>
                                     <td>
-                                        <a href="/POS_software/admin/products.php?edit_id=<?= $lp['id'] ?>" class="btn btn-sm btn-light">Restock</a>
+                                        <a href="<?= url('/admin/products.php?edit_id=' . $lp['id']) ?>" class="btn btn-sm btn-light">Restock</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -283,7 +283,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="card">
             <div class="card-header">
                 <h3>Recent Sales Invoices</h3>
-                <a href="/POS_software/admin/invoices.php" class="btn btn-sm btn-light">View All Invoices</a>
+                <a href="<?= url('/admin/invoices.php') ?>" class="btn btn-sm btn-light">View All Invoices</a>
             </div>
             <div class="card-body" style="padding: 0;">
                 <div class="table-responsive">
@@ -309,7 +309,7 @@ include __DIR__ . '/../includes/header.php';
                                 <?php foreach ($recentSales as $sale): ?>
                                     <tr>
                                         <td>
-                                            <a href="/POS_software/print_invoice.php?invoice=<?= urlencode($sale['invoice_number']) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
+                                            <a href="<?= url('/print_invoice.php?invoice=' . urlencode($sale['invoice_number'])) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
                                                 <?= e($sale['invoice_number']) ?>
                                             </a>
                                         </td>
@@ -327,7 +327,7 @@ include __DIR__ . '/../includes/header.php';
                                         </td>
                                         <td><?= date('d M, h:i A', strtotime($sale['created_at'])) ?></td>
                                         <td class="text-right">
-                                            <a href="/POS_software/print_invoice.php?invoice=<?= urlencode($sale['invoice_number']) ?>" target="_blank" class="btn btn-sm btn-light" title="Print Receipt">
+                                            <a href="<?= url('/print_invoice.php?invoice=' . urlencode($sale['invoice_number'])) ?>" target="_blank" class="btn btn-sm btn-light" title="Print Receipt">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                                                 Print
                                             </a>

@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
 
     if (empty($items)) {
         flash('error', 'Cart is empty. Please add at least one product.');
-        redirect('/POS_software/operator/index.php');
+        redirect('/operator/index.php');
     }
 
     try {
@@ -52,12 +52,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
             $basePrice = (float) $prod['market_sale_price'];
 
             if (!empty($prod['expiry_date']) && strtotime($prod['expiry_date']) < strtotime(date('Y-m-d'))) {
-                if ($user['role'] !== 'Admin') {
-                    throw new RuntimeException("Product '{$prod['name']}' has expired. Only Admin can bill expired stock.");
+                if (!in_array($user['role'], ['Admin', 'Master'], true)) {
+                    throw new RuntimeException("Product '{$prod['name']}' has expired. Only Admin/Master can bill expired stock.");
                 }
             }
 
-            if ($user['role'] !== 'Admin') {
+            if (!in_array($user['role'], ['Admin', 'Master'], true)) {
                 if ($submittedPrice > 0 && $submittedPrice < ($basePrice - 0.01)) {
                     throw new RuntimeException("Security Restriction: Operator cannot sell '{$prod['name']}' below rate of Rs " . money($basePrice) . ".");
                 }
@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
                 $creditLimit = (float) $uCust['credit_limit'];
 
                 if (($activeBalance + $netPayable) > $creditLimit) {
-                    if ($user['role'] !== 'Admin') {
+                    if (!in_array($user['role'], ['Admin', 'Master'], true)) {
                         throw new RuntimeException("Credit limit exceeded for '{$uCust['name']}'!");
                     }
                 }
@@ -158,11 +158,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
             'autoprint' => $autoprint
         ];
 
-        redirect("/POS_software/operator/index.php?sale_done=" . urlencode($invoice));
+        redirect("/operator/index.php?sale_done=" . urlencode($invoice));
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         flash('error', $e->getMessage());
-        redirect('/POS_software/operator/index.php');
+        redirect('/operator/index.php');
     }
 }
 
@@ -564,13 +564,14 @@ function formatMoney(num) {
 }
 
 function printReceipt(invNum) {
-    window.open('/POS_software/print_invoice.php?invoice=' + encodeURIComponent(invNum) + '&autoprint=1', '_blank', 'width=420,height=650');
+    window.open('<?= url('/print_invoice.php') ?>?invoice=' + encodeURIComponent(invNum) + '&autoprint=1', '_blank', 'width=420,height=650');
 }
 
 /* Add to Cart Handler */
 function addToCart(prod) {
+    const isSuper = (userRole === 'Admin' || userRole === 'Master');
     if (prod.days_until_expiry !== null && prod.days_until_expiry < 0) {
-        if (userRole !== 'Admin') {
+        if (!isSuper) {
             alert('❌ Expired Product: ' + prod.name);
             return;
         } else if (!confirm('⚠️ Admin Alert: Product expired. Add anyway?')) {
@@ -737,7 +738,8 @@ function updateItemPrice(id, newPriceVal) {
         return;
     }
 
-    if (userRole !== 'Admin' && newPrice < (item.original_price - 0.01)) {
+    const isSuper = (userRole === 'Admin' || userRole === 'Master');
+    if (!isSuper && newPrice < (item.original_price - 0.01)) {
         alert('Operator cannot sell below set rate Rs ' + item.original_price);
         renderCart();
         return;

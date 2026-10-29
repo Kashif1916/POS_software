@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
                 flash('success', "Udhar recovery payment of Rs " . money($amount) . " recorded successfully! Receipt # $receiptNo");
-                redirect("/POS_software/print_udhar_receipt.php?id=$paymentId&autoprint=1");
+                redirect("/print_udhar_receipt.php?id=$paymentId&autoprint=1");
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 flash('error', $e->getMessage());
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash('error', 'Customer name is required.');
         }
-        redirect('/POS_software/admin/udhar.php?tab=customers');
+        redirect('/admin/udhar.php?tab=customers');
     } elseif ($action === 'edit_customer') {
         $id = post_int('id');
         $name = post_string('name');
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash('error', 'Valid customer details required.');
         }
-        redirect('/POS_software/admin/udhar.php?tab=customers');
+        redirect('/admin/udhar.php?tab=customers');
     } elseif ($action === 'delete_customer') {
         $id = post_int('id');
         if ($id) {
@@ -91,10 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$id]);
             flash('success', "Customer removed from credit registry.");
         }
-        redirect('/POS_software/admin/udhar.php?tab=customers');
+        redirect('/admin/udhar.php?tab=customers');
     }
 
-    redirect('/POS_software/admin/udhar.php');
+    redirect('/admin/udhar.php');
 }
 
 // Udhar Summary
@@ -179,10 +179,10 @@ include __DIR__ . '/../includes/header.php';
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <!-- Tab Navigation -->
         <div style="display: flex; gap: 4px; background: #e2e8f0; padding: 3px; border-radius: 8px;">
-            <a href="/POS_software/admin/udhar.php?tab=invoices" class="btn btn-sm <?= $activeTab === 'invoices' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
+            <a href="<?= url('/admin/udhar.php?tab=invoices') ?>" class="btn btn-sm <?= $activeTab === 'invoices' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
                 📑 Udhar Invoices (<?= count($udhars) ?>)
             </a>
-            <a href="/POS_software/admin/udhar.php?tab=customers" class="btn btn-sm <?= $activeTab === 'customers' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
+            <a href="<?= url('/admin/udhar.php?tab=customers') ?>" class="btn btn-sm <?= $activeTab === 'customers' ? 'btn-primary' : 'btn-light' ?>" style="font-weight: 700;">
                 👥 Udhar Customers & Limits (<?= count($customers) ?>)
             </a>
         </div>
@@ -194,9 +194,9 @@ include __DIR__ . '/../includes/header.php';
             </div>
 
             <div style="display: flex; gap: 6px;">
-                <a href="/POS_software/admin/udhar.php?tab=invoices" class="btn btn-sm <?= empty($filter) ? 'btn-primary' : 'btn-light' ?>">All Accounts</a>
-                <a href="/POS_software/admin/udhar.php?tab=invoices&status=pending" class="btn btn-sm <?= $filter === 'pending' ? 'btn-warning' : 'btn-light' ?>">Pending Only</a>
-                <a href="/POS_software/admin/udhar.php?tab=invoices&status=cleared" class="btn btn-sm <?= $filter === 'cleared' ? 'btn-success' : 'btn-light' ?>">Cleared Only</a>
+                <a href="<?= url('/admin/udhar.php?tab=invoices') ?>" class="btn btn-sm <?= empty($filter) ? 'btn-primary' : 'btn-light' ?>">All Accounts</a>
+                <a href="<?= url('/admin/udhar.php?tab=invoices&status=pending') ?>" class="btn btn-sm <?= $filter === 'pending' ? 'btn-warning' : 'btn-light' ?>">Pending Only</a>
+                <a href="<?= url('/admin/udhar.php?tab=invoices&status=cleared') ?>" class="btn btn-sm <?= $filter === 'cleared' ? 'btn-success' : 'btn-light' ?>">Cleared Only</a>
             </div>
         <?php else: ?>
             <div class="search-box">
@@ -360,7 +360,7 @@ include __DIR__ . '/../includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="/POS_software/print_invoice.php?invoice=<?= urlencode($u['invoice_number']) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
+                                    <a href="<?= url('/print_invoice.php?invoice=' . urlencode($u['invoice_number'])) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
                                         <?= e($u['invoice_number']) ?>
                                     </a>
                                 </td>
@@ -444,7 +444,7 @@ include __DIR__ . '/../includes/header.php';
                                 <td><?= e($rec['recorded_by_user'] ?? 'System') ?></td>
                                 <td><small class="text-muted"><?= e($rec['notes'] ?: '—') ?></small></td>
                                 <td class="text-right">
-                                    <a href="/POS_software/print_udhar_receipt.php?id=<?= $rec['id'] ?>" target="_blank" class="btn btn-sm btn-light">
+                                    <a href="<?= url('/print_udhar_receipt.php?id=' . $rec['id']) ?>" target="_blank" class="btn btn-sm btn-light">
                                         Print Slip
                                     </a>
                                 </td>

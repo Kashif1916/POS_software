@@ -15,8 +15,9 @@ CREATE TABLE users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(80) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    plain_password VARCHAR(255) NULL,
     full_name VARCHAR(120) NULL,
-    role ENUM('Admin','Operator') NOT NULL DEFAULT 'Operator',
+    role VARCHAR(30) NOT NULL DEFAULT 'Operator',
     status ENUM('Active','Frozen') NOT NULL DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -163,11 +164,24 @@ CREATE TABLE udhar_payments (
 -- Store settings table
 CREATE TABLE store_settings (
     id INT PRIMARY KEY DEFAULT 1,
-    store_name VARCHAR(150) NOT NULL DEFAULT 'Super POS Mart',
-    phone VARCHAR(50) NOT NULL DEFAULT '0300-1234567',
-    address VARCHAR(255) NOT NULL DEFAULT 'Shop # 12, Main Commercial Market',
+    store_name VARCHAR(150) NOT NULL DEFAULT 'Al Mehbob Traders',
+    phone VARCHAR(50) NOT NULL DEFAULT '0309-7107977',
+    address VARCHAR(255) NOT NULL DEFAULT 'Janubi Bazar Jauharabad',
     currency_symbol VARCHAR(10) NOT NULL DEFAULT 'Rs',
     receipt_footer VARCHAR(255) NOT NULL DEFAULT 'Thank you for shopping with us! Items can be returned within 3 days with receipt.'
+) ENGINE=InnoDB;
+
+-- Software locks table (for master scheduled system lockouts)
+CREATE TABLE software_locks (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    lock_date DATE NOT NULL UNIQUE,
+    unlock_password VARCHAR(255) NOT NULL,
+    lock_message TEXT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    is_unlocked TINYINT(1) NOT NULL DEFAULT 0,
+    unlocked_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- Automated triggers for inventory & balances
@@ -194,12 +208,13 @@ DELIMITER ;
 
 -- Store settings
 INSERT INTO store_settings (id, store_name, phone, address, currency_symbol, receipt_footer)
-VALUES (1, 'Super POS Mart', '0300-1234567', 'Shop # 12, Main Commercial Market', 'Rs', 'Thank you for shopping with us! Items can be returned within 3 days with receipt.');
+VALUES (1, 'Al Mehbob Traders', '0309-7107977', 'Janubi Bazar Jauharabad', 'Rs', 'Thank you for shopping with us! Items can be returned within 3 days with receipt.');
 
--- Default accounts (admin / admin123, operator / operator123)
-INSERT INTO users (id, username, password_hash, full_name, role, status) VALUES 
-(1, 'admin', '$2y$10$b50XHR2jq6Uv2v6kvFcF/.BN983ppxiPlnduOIrUu/jgk1PdKAdXe', 'Store Administrator', 'Admin', 'Active'),
-(2, 'operator', '$2y$10$G/QdkOuEfmJDz0k/OFtrm.blfAeQXVoaMp8atGa7xuMpxF2K.7nma', 'Cashier Operator', 'Operator', 'Active');
+-- Default accounts (master / master123, admin / admin123, operator / operator123)
+INSERT INTO users (id, username, password_hash, plain_password, full_name, role, status) VALUES 
+(1, 'master', '$2y$10$WdC.7N9gBfxh4zCgT8QxjeK9R1jP3qL7wN8yJ7g3hE5xN8v4nL4nO', 'master123', 'Master User', 'Master', 'Active'),
+(2, 'admin', '$2y$10$b50XHR2jq6Uv2v6kvFcF/.BN983ppxiPlnduOIrUu/jgk1PdKAdXe', 'admin123', 'Store Administrator', 'Admin', 'Active'),
+(3, 'operator', '$2y$10$G/QdkOuEfmJDz0k/OFtrm.blfAeQXVoaMp8atGa7xuMpxF2K.7nma', 'operator123', 'Cashier Operator', 'Operator', 'Active');
 
 -- Categories
 INSERT INTO categories (id, name) VALUES 

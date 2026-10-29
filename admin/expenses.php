@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    redirect($isAdmin ? '/POS_software/admin/expenses.php' : '/POS_software/operator/expenses.php');
+    redirect($isAdmin ? '/admin/expenses.php' : '/operator/expenses.php');
 }
 
 // Summary Metrics
@@ -108,9 +108,9 @@ include __DIR__ . '/../includes/header.php';
         </div>
 
         <div style="display: flex; gap: 6px;">
-            <a href="/POS_software/admin/expenses.php" class="btn btn-sm <?= empty($dateFilter) ? 'btn-primary' : 'btn-light' ?>">All Expenses</a>
-            <a href="/POS_software/admin/expenses.php?filter=today" class="btn btn-sm <?= $dateFilter === 'today' ? 'btn-danger' : 'btn-light' ?>">Today Only</a>
-            <a href="/POS_software/admin/expenses.php?filter=month" class="btn btn-sm <?= $dateFilter === 'month' ? 'btn-warning' : 'btn-light' ?>">This Month</a>
+            <a href="<?= url('/admin/expenses.php') ?>" class="btn btn-sm <?= empty($dateFilter) ? 'btn-primary' : 'btn-light' ?>">All Expenses</a>
+            <a href="<?= url('/admin/expenses.php?filter=today') ?>" class="btn btn-sm <?= $dateFilter === 'today' ? 'btn-danger' : 'btn-light' ?>">Today Only</a>
+            <a href="<?= url('/admin/expenses.php?filter=month') ?>" class="btn btn-sm <?= $dateFilter === 'month' ? 'btn-warning' : 'btn-light' ?>">This Month</a>
         </div>
     </div>
 

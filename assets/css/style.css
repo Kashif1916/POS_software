@@ -535,6 +535,8 @@ button, input, select, textarea {
 .badge-primary { background: var(--primary-light); color: var(--primary); }
 .badge-info { background: var(--info-light); color: #0369a1; }
 .badge-gray { background: #f1f5f9; color: #475569; }
+.badge-purple { background: #f3e8ff; color: #7e22ce; }
+.badge-gold { background: #fef3c7; color: #b45309; }
 
 /* Forms & Inputs */
 .form-group {

@@ -85,16 +85,16 @@ include __DIR__ . '/../includes/header.php';
         </div>
 
         <div style="display: flex; gap: 6px;">
-            <a href="/POS_software/admin/invoices.php" class="btn btn-sm <?= empty($modeFilter) && empty($dateFilter) ? 'btn-primary' : 'btn-light' ?>">All</a>
-            <a href="/POS_software/admin/invoices.php?date=today" class="btn btn-sm <?= $dateFilter === 'today' ? 'btn-primary' : 'btn-light' ?>">Today's Invoices</a>
-            <a href="/POS_software/admin/invoices.php?mode=Cash" class="btn btn-sm <?= $modeFilter === 'Cash' ? 'btn-success' : 'btn-light' ?>">Cash</a>
-            <a href="/POS_software/admin/invoices.php?mode=Bank" class="btn btn-sm <?= $modeFilter === 'Bank' ? 'btn-info' : 'btn-light' ?>">Bank</a>
-            <a href="/POS_software/admin/invoices.php?mode=Udhar" class="btn btn-sm <?= $modeFilter === 'Udhar' ? 'btn-warning' : 'btn-light' ?>">Udhar</a>
+            <a href="<?= url('/admin/invoices.php') ?>" class="btn btn-sm <?= empty($modeFilter) && empty($dateFilter) ? 'btn-primary' : 'btn-light' ?>">All</a>
+            <a href="<?= url('/admin/invoices.php?date=today') ?>" class="btn btn-sm <?= $dateFilter === 'today' ? 'btn-primary' : 'btn-light' ?>">Today's Invoices</a>
+            <a href="<?= url('/admin/invoices.php?mode=Cash') ?>" class="btn btn-sm <?= $modeFilter === 'Cash' ? 'btn-success' : 'btn-light' ?>">Cash</a>
+            <a href="<?= url('/admin/invoices.php?mode=Bank') ?>" class="btn btn-sm <?= $modeFilter === 'Bank' ? 'btn-info' : 'btn-light' ?>">Bank</a>
+            <a href="<?= url('/admin/invoices.php?mode=Udhar') ?>" class="btn btn-sm <?= $modeFilter === 'Udhar' ? 'btn-warning' : 'btn-light' ?>">Udhar</a>
         </div>
     </div>
 
     <div>
-        <a href="/POS_software/operator/index.php" class="btn btn-primary">
+        <a href="<?= url('/operator/index.php') ?>" class="btn btn-primary">
             + New Sale Receipt
         </a>
     </div>
@@ -164,7 +164,7 @@ include __DIR__ . '/../includes/header.php';
                                 <td><?= e($inv['operator_name'] ?? 'System') ?></td>
                                 <td><?= date('d M Y, h:i A', strtotime($inv['created_at'])) ?></td>
                                 <td class="text-right">
-                                    <a href="/POS_software/print_invoice.php?invoice=<?= urlencode($inv['invoice_number']) ?>" target="_blank" class="btn btn-sm btn-light">
+                                    <a href="<?= url('/print_invoice.php?invoice=' . urlencode($inv['invoice_number'])) ?>" target="_blank" class="btn btn-sm btn-light">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                                         Print
                                     </a>

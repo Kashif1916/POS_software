@@ -1,0 +1,14 @@
+# Set Directory Index
+DirectoryIndex index.php
+
+# Disable Directory Browsing
+Options -Indexes
+
+# Protect sensitive files from direct web access
+<FilesMatch "\.(sql|log|ini|env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Optional UTF-8 encoding
+AddDefaultCharset UTF-8

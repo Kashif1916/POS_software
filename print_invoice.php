@@ -36,7 +36,7 @@ $autoprint = isset($_GET['autoprint']);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Receipt #<?= e($sale['invoice_number']) ?></title>
-<link rel="stylesheet" href="/POS_software/assets/css/style.css">
+<link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
 <style>
     body {
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -238,9 +238,9 @@ $autoprint = isset($_GET['autoprint']);
     <div class="thermal-line"></div>
 
     <div class="thermal-footer">
-        <p><?= e($settings['receipt_footer']) ?></p>
-        <div class="barcode-text">*<?= e($sale['invoice_number']) ?>*</div>
-        <p style="font-size: 10px; color: #64748b; margin-top: 4px;">Powered by QuickPOS</p>
+        <p><?= nl2br(e($settings['receipt_footer'])) ?></p>
+      
+        
     </div>
 </div>
 
