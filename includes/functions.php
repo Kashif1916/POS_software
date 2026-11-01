@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/db.php';
 
+// ── Timezone: Pakistan Standard Time ──────────────────────────────────────────
+date_default_timezone_set('Asia/Karachi');
+// ──────────────────────────────────────────────────────────────────────────────
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -128,6 +132,18 @@ function require_login(?string $role = null): void
     if (!$user) {
         redirect('/login.php');
     }
+
+    // ── Auto-logout after 1 hour of inactivity ──────────────────────────────
+    $timeout = 3600; // 1 hour in seconds
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout) {
+        session_unset();
+        session_destroy();
+        session_start();
+        flash('error', 'آپ کو 1 گھنٹے کی غیر فعالیت کی وجہ سے خود بخود لاگ آؤٹ کر دیا گیا ہے۔');
+        redirect('/login.php');
+    }
+    $_SESSION['last_activity'] = time();
+    // ────────────────────────────────────────────────────────────────────────
 
     $pdo = db();
     $stmt = $pdo->prepare("SELECT status FROM users WHERE id = ? LIMIT 1");

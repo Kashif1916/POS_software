@@ -30,110 +30,149 @@ $autoprint = isset($_GET['autoprint']);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dealer Receipt #<?= e($payment['receipt_number']) ?></title>
-    <link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
     <style>
+        /* Sharp & Dark Thermal Formatting - Matched with print_invoice.php */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f8fafc;
+            color: #000000;
+            width: 80mm;
+        }
         .thermal-receipt {
-            width: 320px;
-            margin: 20px auto;
+            width: 76mm;
+            margin: 10px auto;
             background: #fff;
-            padding: 20px 16px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 2mm;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
             font-size: 13px;
-            color: #111827;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            line-height: 1.4;
+            color: #000000;
+            line-height: 1.3;
         }
         .thermal-header {
             text-align: center;
-            margin-bottom: 12px;
+            margin-bottom: 2mm;
         }
         .thermal-header h2 {
-            font-size: 17px;
-            font-weight: 800;
-            margin: 0;
+            font-size: 18px;
+            font-weight: 900;
+            margin: 0 0 2px 0;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #000000;
         }
         .thermal-header p {
-            margin: 3px 0;
-            font-size: 11.5px;
-            color: #4b5563;
+            margin: 1mm 0;
+            font-size: 12px;
+            font-weight: bold;
+            color: #000000;
         }
         .receipt-tag {
             display: inline-block;
-            font-weight: 800;
-            font-size: 12.5px;
-            padding: 3px 10px;
-            border: 1px dashed #374151;
-            margin-top: 6px;
+            font-weight: 900;
+            font-size: 13px;
+            padding: 2px 8px;
+            border: 1.5px solid #000000;
+            margin-top: 4px;
             text-transform: uppercase;
         }
         .thermal-line {
-            border-top: 1px dashed #374151;
-            margin: 10px 0;
+            border-top: 1.5px solid #000000;
+            margin: 2mm 0;
         }
         .thermal-meta {
             font-size: 12px;
-            margin-bottom: 8px;
-            line-height: 1.45;
-            color: #374151;
+            font-weight: bold;
+            margin-bottom: 2mm;
+            color: #000000;
         }
         .thermal-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
+            margin-bottom: 1.5mm;
             font-size: 12.5px;
+            font-weight: bold;
+            color: #000000;
         }
         .thermal-grand {
-            font-size: 15px;
-            font-weight: 800;
-            border-top: 1px dashed #374151;
-            border-bottom: 1px dashed #374151;
-            padding: 6px 0;
-            margin: 8px 0;
-            color: #111827;
+            font-size: 16px;
+            font-weight: 900;
+            border-top: 2px solid #000000;
+            border-bottom: 2px solid #000000;
+            padding: 2mm 0;
+            margin: 2mm 0;
+            color: #000000;
         }
         .sig-container {
             display: flex;
             justify-content: space-between;
-            margin-top: 36px;
+            margin-top: 30px;
             padding-top: 5px;
         }
         .sig-box {
-            width: 130px;
-            border-top: 1px dashed #374151;
+            width: 120px;
+            border-top: 1.5px dashed #000000;
             text-align: center;
-            font-size: 10.5px;
-            color: #4b5563;
+            font-size: 11px;
+            font-weight: bold;
+            color: #000000;
             padding-top: 4px;
         }
         .thermal-footer {
             text-align: center;
             font-size: 11px;
-            margin-top: 16px;
-            color: #4b5563;
+            font-weight: bold;
+            margin-top: 3mm;
+            color: #000000;
         }
+
+        /* Offline Urdu Font Style */
+        .urdu-text {
+            font-family: 'Urdu Typesetting', 'Traditional Arabic', 'Jameel Noori Nastaliq', 'Noto Nastaliq Urdu', 'Segoe UI', Arial, sans-serif !important;
+            font-size: 18.5px !important;
+            font-weight: bold !important;
+            line-height: 1.6 !important;
+            direction: rtl;
+            text-align: center;
+            color: #000000 !important;
+        }
+
+        /* Print Specific Styles */
         @media print {
-            body { background: #fff !important; }
-            .no-print { display: none !important; }
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+            body {
+                background: #fff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 80mm !important;
+            }
+            .no-print {
+                display: none !important;
+            }
             .thermal-receipt {
+                width: 76mm !important;
+                margin: 0 !important;
+                padding: 2mm !important;
                 border: none !important;
                 box-shadow: none !important;
-                margin: 0 auto !important;
-                padding: 4px !important;
-                width: 100% !important;
-                max-width: 320px;
+            }
+            * {
+                color: #000000 !important;
+                text-shadow: none !important;
             }
         }
     </style>
 </head>
-<body style="background: #f8fafc;">
+<body>
     <div style="text-align: center; margin: 20px 0;" class="no-print">
-        <button onclick="window.print()" class="btn btn-primary">
+        <button onclick="window.print()" style="padding: 8px 16px; font-weight: bold; cursor: pointer;">
             🖨️ Print Thermal Slip (80mm)
         </button>
-        <button onclick="window.close()" class="btn btn-light">Close</button>
+        <button onclick="window.close()" style="padding: 8px 16px; font-weight: bold; cursor: pointer;">Close</button>
     </div>
 
     <div class="thermal-receipt">
@@ -163,7 +202,7 @@ $autoprint = isset($_GET['autoprint']);
 
         <div class="thermal-line"></div>
 
-        <div style="font-size: 11.5px; margin-bottom: 8px;">
+        <div style="font-size: 12px; margin-bottom: 2mm;">
             <div class="thermal-row">
                 <span>Dealer:</span>
                 <strong><?= e($payment['dealer_name']) ?></strong>
@@ -197,7 +236,7 @@ $autoprint = isset($_GET['autoprint']);
             <span>Rs <?= money($payment['paid_amount']) ?></span>
         </div>
 
-        <div class="thermal-row" style="font-size: 11.5px; margin-top: 6px;">
+        <div class="thermal-row" style="font-size: 12.5px; margin-top: 6px;">
             <span>Remaining Balance:</span>
             <strong>Rs <?= money($payment['pending_payable_amount']) ?></strong>
         </div>
@@ -208,8 +247,8 @@ $autoprint = isset($_GET['autoprint']);
         </div>
 
         <div class="thermal-footer">
-            <p>Verified Payment Disbursement Voucher</p>
-            <p style="font-size: 9px; color: #555; margin-top: 3px;"><?= e($settings['store_name']) ?> POS System</p>
+            <p class="urdu-text" style="margin: 0 0 4px 0;">اپنے کاروبار کے لیے 2000 روپے ماہانہ پر سافٹ ویئر حاصل کرنے کے لیے رابطہ کریں</p>
+            <p style="font-size: 12px; color: #000; margin: 0;">KJ Software House Khushab<br>Phone: 03180711280</p>
         </div>
     </div>
 

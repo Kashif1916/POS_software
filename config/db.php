@@ -50,6 +50,9 @@ function db(): PDO
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]
             );
+            // ── Force MySQL timezone to Pakistan Standard Time (+05:00) ───────
+            $pdo->exec("SET time_zone = '+05:00'");
+            // ─────────────────────────────────────────────────────────────────
         } catch (PDOException $ex) {
             // If unknown database error (error code 1049) on local development, try to create it automatically
             if ($ex->getCode() == 1049 || str_contains($ex->getMessage(), 'Unknown database')) {
@@ -93,7 +96,7 @@ function ensure_schema(PDO $pdo): void
     if ($migrated) return;
 
     // Users table
-   $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(80) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
@@ -225,7 +228,7 @@ function ensure_schema(PDO $pdo): void
     // Udhar ledger table
     $pdo->exec("CREATE TABLE IF NOT EXISTS udhar_ledger (
         id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        sale_id BIGINT UNSIGNED NOT NULL UNIQUE,
+        sale_id BIGINT UNSIGNED NULL,
         buyer_name VARCHAR(150) NULL,
         buyer_phone VARCHAR(40) NULL,
         total_amount DECIMAL(12,2) NOT NULL,
@@ -240,7 +243,7 @@ function ensure_schema(PDO $pdo): void
     $pdo->exec("CREATE TABLE IF NOT EXISTS udhar_payments (
         id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         udhar_id BIGINT UNSIGNED NOT NULL,
-        sale_id BIGINT UNSIGNED NOT NULL,
+        sale_id BIGINT UNSIGNED NULL,
         amount_paid DECIMAL(12,2) NOT NULL,
         payment_mode ENUM('Cash','Bank') NOT NULL DEFAULT 'Cash',
         receipt_number VARCHAR(40) NOT NULL UNIQUE,
@@ -281,6 +284,7 @@ function ensure_schema(PDO $pdo): void
         phone VARCHAR(40) NULL,
         address VARCHAR(255) NULL,
         credit_limit DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        opening_balance DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         notes VARCHAR(255) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB");
@@ -326,6 +330,10 @@ function ensure_schema(PDO $pdo): void
             $pdo->exec("ALTER TABLE udhar_ledger ADD COLUMN customer_id INT UNSIGNED NULL AFTER sale_id");
         }
 
+        // FIX: Make sale_id NULLABLE for opening balance / purana udhar entries in running systems
+        $pdo->exec("ALTER TABLE udhar_ledger MODIFY COLUMN sale_id BIGINT UNSIGNED NULL");
+        $pdo->exec("ALTER TABLE udhar_payments MODIFY COLUMN sale_id BIGINT UNSIGNED NULL");
+
         // Software locks migrations: is_unlocked and unlocked_at
         $lockCols = $pdo->query("SHOW COLUMNS FROM software_locks")->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('is_unlocked', $lockCols)) {
@@ -333,6 +341,12 @@ function ensure_schema(PDO $pdo): void
         }
         if (!in_array('unlocked_at', $lockCols)) {
             $pdo->exec("ALTER TABLE software_locks ADD COLUMN unlocked_at DATETIME NULL AFTER is_unlocked");
+        }
+
+        // Udhar Customers migrations: opening_balance
+        $udharCustCols = $pdo->query("SHOW COLUMNS FROM udhar_customers")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('opening_balance', $udharCustCols)) {
+            $pdo->exec("ALTER TABLE udhar_customers ADD COLUMN opening_balance DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER credit_limit");
         }
     } catch (Throwable $e) {
         // Log migration note if already modified

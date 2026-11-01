@@ -325,8 +325,8 @@ if ($lockMessage === '') {
         </form>
 
         <div class="support-info">
-            For assistance, contact: <strong><?= e($settings['phone']) ?></strong><br>
-            <?= e($settings['address']) ?>
+            For assistance, contact: 03180711280 </strong><br>
+            KJ Software House Khushab
         </div>
     </div>
 

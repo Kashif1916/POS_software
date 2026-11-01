@@ -191,26 +191,32 @@ $recentInvoices = $pdo->query("SELECT s.*, u.username as cashier
     LIMIT 10")->fetchAll();
 
 $latestInvoiceNumber = $recentInvoices[0]['invoice_number'] ?? null;
-$completedSaleInfo =$_SESSION['last_sale'] ?? null;
+$completedSaleInfo = $_SESSION['last_sale'] ?? null;
 unset($_SESSION['last_sale']);
 
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <style>
-/* Optimized Dual-Column Professional Layout */
-.pos-layout-grid {
-    display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 16px;
-    align-items: start;
+/* Full Single-Screen POS Layout - No Vertical Scroll */
+body {
+    overflow-y: hidden;
 }
 
-/* Left Column Styling */
+.pos-layout-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 12px;
+    align-items: stretch;
+    height: calc(100vh - 85px);
+}
+
 .pos-left-column {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
+    height: 100%;
+    overflow: hidden;
 }
 
 .search-dropdown-wrapper {
@@ -227,7 +233,7 @@ include __DIR__ . '/../includes/header.php';
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.12);
-    max-height: 280px;
+    max-height: 220px;
     overflow-y: auto;
     z-index: 1000;
     display: none;
@@ -235,34 +241,31 @@ include __DIR__ . '/../includes/header.php';
 }
 
 .search-dropdown-item {
-    padding: 10px 14px;
+    padding: 8px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
-    transition: background 0.15s;
 }
 
-.search-dropdown-item:hover, .search-dropdown-item.selected {
+.search-dropdown-item:hover {
     background: #f0fdf4;
 }
 
-.search-dropdown-item:last-child {
-    border-bottom: none;
-}
-
-/* Cart Table Layout */
 .pos-cart-panel {
     background: #ffffff;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 470px;
 }
 
 .pos-cart-table-wrapper {
-    max-height: 300px;
+    flex: 1;
     overflow-y: auto;
 }
 
@@ -274,59 +277,76 @@ include __DIR__ . '/../includes/header.php';
 .pos-cart-table th {
     background: #f8fafc;
     color: #475569;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
     text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .pos-cart-table td {
-    padding: 10px 14px;
+    padding: 6px 12px;
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
 }
 
-/* Product Selection Cards */
 .pos-catalog-panel {
     background: #ffffff;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    height: 210px;
+    display: flex;
+    flex-direction: column;
 }
 
 .pos-products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
-    max-height: 280px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
     overflow-y: auto;
-    padding-top: 8px;
+    flex: 1;
+    padding-top: 4px;
 }
 
-/* Right Side Checkout Box */
+.pos-product-card {
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+}
+
+.pos-product-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
 .pos-checkout-sidebar {
     background: #ffffff;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 18px;
+    border-radius: 10px;
+    padding: 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    position: sticky;
-    top: 80px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .cart-qty-btn {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 4px;
     background: #f1f5f9;
     border: 1px solid #cbd5e1;
     font-weight: 700;
     cursor: pointer;
-}
-.cart-qty-btn:hover {
-    background: #e2e8f0;
 }
 </style>
 
@@ -364,9 +384,8 @@ include __DIR__ . '/../includes/header.php';
                     <div class="search-dropdown-wrapper">
                         <div class="search-box">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            <input type="text" id="posProductSearch" placeholder="Search product name or scan barcode..." autofocus autocomplete="off" onkeyup="handleSearchKey(event)" oninput="filterSearchDropdown()">
+                            <input type="text" id="posProductSearch" placeholder="Search product name or scan barcode..." autofocus autocomplete="off" onkeydown="preventInputSubmit(event)" onkeyup="handleSearchKey(event)" oninput="filterSearchDropdown()">
                         </div>
-                        <!-- Live Search Results Dropdown -->
                         <div id="searchResultsDropdown" class="search-results-dropdown"></div>
                     </div>
 
@@ -378,14 +397,7 @@ include __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </div>
 
-                <div style="display: flex; gap: 6px; overflow-x: auto; padding-top: 4px;">
-                    <button type="button" class="category-chip active" data-cat="" onclick="filterCategory(this, '')">All Categories</button>
-                    <?php foreach ($categories as$cat): ?>
-                        <button type="button" class="category-chip" data-cat="<?= e(strtolower($cat['name'])) ?>" onclick="filterCategory(this, '<?= e(addslashes(strtolower($cat['name']))) ?>')">
-                            <?= e($cat['name']) ?>
-                        </button>
-                    <?php endforeach; ?>
-                </div>
+                
             </div>
 
             <!-- 2. Wide Cart Table -->
@@ -426,7 +438,7 @@ include __DIR__ . '/../includes/header.php';
                     Quick Click Product Items
                 </div>
                 <div class="pos-products-grid" id="posProductsGrid">
-                    <?php foreach ($products as$p): 
+                    <?php foreach ($products as $p): 
                         $isOut = (float)$p['stock_quantity'] <= 0;
                         $isKg = ($p['unit'] ?? 'piece') === 'kg';
                         if ($isKg) {
@@ -464,7 +476,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-        <!-- RIGHT CHECKOUT SIDEBAR (Shifted & Fixed) -->
+        <!-- RIGHT CHECKOUT SIDEBAR -->
         <div class="pos-checkout-sidebar">
             <h3 style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
                 Checkout Summary
@@ -476,7 +488,7 @@ include __DIR__ . '/../includes/header.php';
                     <label style="font-size: 11px; font-weight: 700; color: #b45309;">Select Udhar Customer *</label>
                     <select name="udhar_customer_id" id="udharCustomerSelect" class="form-control" onchange="onUdharCustomerSelected(this.value)" style="font-size: 12px; padding: 5px 8px;">
                         <option value="">-- Select Udhar Customer --</option>
-                        <?php foreach ($udharCustomers as$uc): ?>
+                        <?php foreach ($udharCustomers as $uc): ?>
                             <option value="<?= $uc['id'] ?>" data-name="<?= e($uc['name']) ?>" data-phone="<?= e($uc['phone'] ?? '') ?>">
                                 <?= e($uc['name']) ?> (Left: Rs <?= money($uc['remaining_limit']) ?>)
                             </option>
@@ -486,11 +498,11 @@ include __DIR__ . '/../includes/header.php';
 
                 <div style="margin-bottom: 6px;">
                     <label style="font-size: 11px; font-weight: 600;">Customer Name</label>
-                    <input type="text" name="buyer_name" id="buyerNameInput" class="form-control" placeholder="Walk-in Customer" style="padding: 5px 8px; font-size: 12px;">
+                    <input type="text" name="buyer_name" id="buyerNameInput" class="form-control" placeholder="Walk-in Customer" style="padding: 5px 8px; font-size: 12px;" onkeydown="preventInputSubmit(event)">
                 </div>
                 <div>
                     <label style="font-size: 11px; font-weight: 600;">Phone Number</label>
-                    <input type="text" name="buyer_phone" id="buyerPhoneInput" class="form-control" placeholder="0300-XXXXXXX" style="padding: 5px 8px; font-size: 12px;">
+                    <input type="text" name="buyer_phone" id="buyerPhoneInput" class="form-control" placeholder="0300-XXXXXXX" style="padding: 5px 8px; font-size: 12px;" onkeydown="preventInputSubmit(event)">
                 </div>
             </div>
 
@@ -505,7 +517,7 @@ include __DIR__ . '/../includes/header.php';
                     <span style="font-size: 13px;">Discount / Bonus:</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 11px; color: #64748b;">Rs</span>
-                        <input type="number" step="0.01" name="bonus_discount" id="discountInput" value="0" class="form-control" style="width: 80px; padding: 3px 6px; text-align: right; font-weight: 700;" oninput="updateCartTotalsOnly()">
+                        <input type="number" step="0.01" name="bonus_discount" id="discountInput" value="0" class="form-control" style="width: 80px; padding: 3px 6px; text-align: right; font-weight: 700;" onkeydown="preventInputSubmit(event)" oninput="updateCartTotalsOnly()">
                     </div>
                 </div>
 
@@ -529,7 +541,7 @@ include __DIR__ . '/../includes/header.php';
             <div id="cashCalculatorBox" style="margin-bottom: 12px;">
                 <div style="margin-bottom: 6px;">
                     <label style="font-size: 11px; font-weight: 600;">Cash Received (Rs):</label>
-                    <input type="number" step="0.01" name="paid_amount" id="cashTendered" class="form-control" placeholder="0.00" style="padding: 6px 8px; font-weight: 700; font-size: 13px;" oninput="calcChange()">
+                    <input type="number" step="0.01" name="paid_amount" id="cashTendered" class="form-control" placeholder="0.00" style="padding: 6px 8px; font-weight: 700; font-size: 13px;" onkeydown="preventInputSubmit(event)" oninput="calcChange()">
                 </div>
                 <div style="padding: 8px 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 11.5px; font-weight: 700; color: #065f46;">Change Return:</span>
@@ -559,15 +571,23 @@ const udharCustomers = <?= json_encode($udharCustomers) ?>;
 let cart = [];
 let activeCategory = '';
 
+function preventInputSubmit(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        return false;
+    }
+}
+
 function formatMoney(num) {
-    return 'Rs ' + Number(num).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const val = Number(num) || 0;
+    return 'Rs ' + val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 function printReceipt(invNum) {
     window.open('<?= url('/print_invoice.php') ?>?invoice=' + encodeURIComponent(invNum) + '&autoprint=1', '_blank', 'width=420,height=650');
 }
 
-/* Add to Cart Handler */
+/* Add to Cart Handler (New Items Added to Top) */
 function addToCart(prod) {
     const isSuper = (userRole === 'Admin' || userRole === 'Master');
     if (prod.days_until_expiry !== null && prod.days_until_expiry < 0) {
@@ -585,9 +605,11 @@ function addToCart(prod) {
     }
 
     const isKg = (prod.unit === 'kg');
-    const existing = cart.find(i => i.id === prod.id);
+    const existingIndex = cart.findIndex(i => i.id === prod.id);
 
-    if (existing) {
+    if (existingIndex !== -1) {
+        const existing = cart[existingIndex];
+
         if (isKg) {
             const nextQty = existing.qty + 0.25;
             if (nextQty <= prod.stock) {
@@ -607,37 +629,44 @@ function addToCart(prod) {
                 return;
             }
         }
+
+        // Existing item ko cart me top par le aayein
+        cart.splice(existingIndex, 1);
+        cart.unshift(existing);
+
     } else {
+        // Naya item hamesha top (unshift) par add hoga
         if (isKg) {
             const defaultQty = prod.stock >= 1 ? 1 : Number(prod.stock);
             const defaultGrams = Math.round(defaultQty * 1000);
-            cart.push({
+            const unitPrice = Number(prod.market_sale_price || prod.price || 0);
+            cart.unshift({
                 id: prod.id,
                 name: prod.name,
                 unit: 'kg',
-                price: Number(prod.market_sale_price || prod.price),
-                original_price: Number(prod.market_sale_price || prod.price),
+                price: unitPrice,
+                original_price: unitPrice,
                 stock: Number(prod.stock_quantity || prod.stock),
                 qty: defaultQty,
                 grams: defaultGrams,
-                amount: Math.round(defaultQty * Number(prod.market_sale_price || prod.price) * 100) / 100
+                amount: Math.round(defaultQty * unitPrice * 100) / 100
             });
         } else {
-            cart.push({
+            const unitPrice = Number(prod.market_sale_price || prod.price || 0);
+            cart.unshift({
                 id: prod.id,
                 name: prod.name,
                 unit: 'piece',
-                price: Number(prod.market_sale_price || prod.price),
-                original_price: Number(prod.market_sale_price || prod.price),
+                price: unitPrice,
+                original_price: unitPrice,
                 stock: Number(prod.stock_quantity || prod.stock),
                 qty: 1,
                 grams: 0,
-                amount: Number(prod.market_sale_price || prod.price)
+                amount: unitPrice
             });
         }
     }
     
-    // Clear search dropdown after selection
     clearSearch();
     renderCart();
 }
@@ -693,7 +722,7 @@ function onKgGramsChange(id, gramsVal) {
 
     item.grams = grams;
     item.qty = qty;
-    item.amount = Math.round(qty * item.price * 100) / 100;
+    item.amount = Math.round(qty * (item.price || 0) * 100) / 100;
 
     const amountInput = document.getElementById('kgAmount_' + id);
     if (amountInput) amountInput.value = item.amount.toFixed(2);
@@ -713,7 +742,7 @@ function onKgAmountChange(id, amountVal) {
         alert('Amount exceeds available stock');
         qty = item.stock;
         grams = Math.round(qty * 1000);
-        amount = Math.round(qty * item.price * 100) / 100;
+        amount = Math.round(qty * (item.price || 0) * 100) / 100;
         const aInput = document.getElementById('kgAmount_' + id);
         if (aInput) aInput.value = amount.toFixed(2);
     }
@@ -748,6 +777,8 @@ function updateItemPrice(id, newPriceVal) {
     item.price = newPrice;
     if (item.unit === 'kg') {
         item.amount = Math.round((item.grams / 1000) * item.price * 100) / 100;
+        const amountInput = document.getElementById('kgAmount_' + id);
+        if (amountInput) amountInput.value = item.amount.toFixed(2);
     } else {
         item.amount = Math.round(item.qty * item.price * 100) / 100;
     }
@@ -768,7 +799,11 @@ function clearCart() {
 }
 
 function updateCartTotalsOnly() {
-    const subtotal = cart.reduce((acc, i) => acc + (i.unit === 'kg' ? i.amount : (i.price * i.qty)), 0);
+    const subtotal = cart.reduce((acc, i) => {
+        const itemVal = (i.unit === 'kg') ? (Number(i.amount) || 0) : ((Number(i.price) || 0) * (Number(i.qty) || 0));
+        return acc + itemVal;
+    }, 0);
+
     const discount = parseFloat(document.getElementById('discountInput').value) || 0;
     const net = Math.max(0, subtotal - discount);
 
@@ -780,6 +815,15 @@ function updateCartTotalsOnly() {
         unit: i.unit,
         price: i.price
     })));
+
+    // Total Display inside Cart Table
+    cart.forEach(i => {
+        const totalTd = document.getElementById('itemLineTotal_' + i.id);
+        if (totalTd) {
+            const lineAmt = (i.unit === 'kg') ? (Number(i.amount) || 0) : ((Number(i.price) || 0) * (Number(i.qty) || 0));
+            totalTd.textContent = formatMoney(lineAmt);
+        }
+    });
 
     calcChange();
 }
@@ -816,16 +860,16 @@ function renderCart() {
                     <td>
                         <div style="display:flex; gap:8px; align-items:center;">
                             <label style="font-size:11px; margin:0; font-weight:600;">Grams:</label>
-                            <input type="number" id="kgGrams_${item.id}" value="${item.grams}" oninput="onKgGramsChange(${item.id}, this.value)" style="width:70px; padding:3px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:4px; text-align:center;">
+                            <input type="number" id="kgGrams_${item.id}" value="${item.grams}" onkeydown="preventInputSubmit(event)" oninput="onKgGramsChange(${item.id}, this.value)" style="width:70px; padding:3px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:4px; text-align:center;">
                             <label style="font-size:11px; margin:0; font-weight:600;">Rs:</label>
-                            <input type="number" id="kgAmount_${item.id}" value="${item.amount.toFixed(2)}" oninput="onKgAmountChange(${item.id}, this.value)" style="width:80px; padding:3px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:4px; text-align:right;">
+                            <input type="number" id="kgAmount_${item.id}" value="${Number(item.amount || 0).toFixed(2)}" onkeydown="preventInputSubmit(event)" oninput="onKgAmountChange(${item.id}, this.value)" style="width:80px; padding:3px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:4px; text-align:right;">
                         </div>
                     </td>
                     <td style="text-align: right;">
-                        <input type="number" value="${item.price}" onchange="updateItemPrice(${item.id}, this.value)" style="width:65px; padding:3px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:4px; text-align:right;">
+                        <input type="number" value="${item.price}" onkeydown="preventInputSubmit(event)" onchange="updateItemPrice(${item.id}, this.value)" style="width:65px; padding:3px; font-size:12px; font-weight:700; border:1px solid #93c5fd; border-radius:4px; text-align:right;">
                     </td>
                     <td style="text-align: right;">
-                        <strong style="font-size:14px; color:#0284c7;">${formatMoney(item.amount)}</strong>
+                        <strong id="itemLineTotal_${item.id}" style="font-size:14px; color:#0284c7;">${formatMoney(item.amount)}</strong>
                     </td>
                     <td style="text-align: center;">
                         <button type="button" onclick="removeFromCart(${item.id})" style="color:#ef4444; background:none; border:none; cursor:pointer; font-size:18px; font-weight:bold;">&times;</button>
@@ -841,15 +885,15 @@ function renderCart() {
                     <td>
                         <div style="display:flex; align-items:center; gap:4px;">
                             <button type="button" class="cart-qty-btn" onclick="updateQty(${item.id}, -1)">&minus;</button>
-                            <input type="number" value="${item.qty}" min="1" max="${item.stock}" onchange="setQty(${item.id}, this.value)" style="width:45px; padding:3px; text-align:center; font-size:12px; font-weight:700; border:1px solid #cbd5e1; border-radius:4px;">
+                            <input type="number" value="${item.qty}" min="1" max="${item.stock}" onkeydown="preventInputSubmit(event)" onchange="setQty(${item.id}, this.value)" style="width:45px; padding:3px; text-align:center; font-size:12px; font-weight:700; border:1px solid #cbd5e1; border-radius:4px;">
                             <button type="button" class="cart-qty-btn" onclick="updateQty(${item.id}, 1)">&#43;</button>
                         </div>
                     </td>
                     <td style="text-align: right;">
-                        <input type="number" value="${item.price}" onchange="updateItemPrice(${item.id}, this.value)" style="width:65px; padding:3px; font-size:12px; font-weight:700; border:1px solid #cbd5e1; border-radius:4px; text-align:right;">
+                        <input type="number" value="${item.price}" onkeydown="preventInputSubmit(event)" onchange="updateItemPrice(${item.id}, this.value)" style="width:65px; padding:3px; font-size:12px; font-weight:700; border:1px solid #cbd5e1; border-radius:4px; text-align:right;">
                     </td>
                     <td style="text-align: right;">
-                        <strong style="font-size:14px; color:#0f172a;">${formatMoney(item.price * item.qty)}</strong>
+                        <strong id="itemLineTotal_${item.id}" style="font-size:14px; color:#0f172a;">${formatMoney(item.price * item.qty)}</strong>
                     </td>
                     <td style="text-align: center;">
                         <button type="button" onclick="removeFromCart(${item.id})" style="color:#ef4444; background:none; border:none; cursor:pointer; font-size:18px; font-weight:bold;">&times;</button>
@@ -905,11 +949,13 @@ function filterSearchDropdown() {
 
 function handleSearchKey(e) {
     if (e.key === 'Enter') {
+        e.preventDefault();
         const dropdown = document.getElementById('searchResultsDropdown');
         const firstItem = dropdown.querySelector('.search-dropdown-item');
         if (firstItem) {
             firstItem.click();
         }
+        return false;
     }
 }
 
@@ -946,7 +992,10 @@ function onUdharCustomerSelected(custId) {
 }
 
 function getNetPayable() {
-    const subtotal = cart.reduce((acc, i) => acc + (i.unit === 'kg' ? i.amount : (i.price * i.qty)), 0);
+    const subtotal = cart.reduce((acc, i) => {
+        const itemVal = (i.unit === 'kg') ? (Number(i.amount) || 0) : ((Number(i.price) || 0) * (Number(i.qty) || 0));
+        return acc + itemVal;
+    }, 0);
     const discount = parseFloat(document.getElementById('discountInput').value) || 0;
     return Math.max(0, subtotal - discount);
 }
@@ -1005,7 +1054,6 @@ function validateCheckout() {
     return true;
 }
 
-// Close search dropdown on clicking outside
 document.addEventListener('click', function(e) {
     const dropdown = document.getElementById('searchResultsDropdown');
     const searchInput = document.getElementById('posProductSearch');

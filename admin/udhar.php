@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Insert into udhar_payments
                 $receiptNo = 'UPR-' . date('ymd') . '-' . random_int(1000, 9999);
                 $pStmt = $pdo->prepare("INSERT INTO udhar_payments (udhar_id, sale_id, amount_paid, payment_mode, receipt_number, date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $pStmt->execute([$udharId, $udhar['sale_id'], $amount, $mode, $receiptNo, $date, $notes, $user['id']]);
+                $pStmt->execute([$udharId, !empty($udhar['sale_id']) ? $udhar['sale_id'] : null, $amount, $mode, $receiptNo, $date, $notes, $user['id']]);
                 $paymentId = (int) $pdo->lastInsertId();
 
                 $pdo->commit();
@@ -58,12 +58,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone = post_string('phone');
         $address = post_string('address');
         $limit = post_float('credit_limit');
+        $opening = post_float('opening_balance');
         $notes = post_string('notes');
 
         if ($name) {
-            $stmt = $pdo->prepare("INSERT INTO udhar_customers (name, phone, address, credit_limit, notes) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$name, $phone ?: null, $address ?: null, $limit, $notes ?: null]);
-            flash('success', "Udhar Customer '$name' registered successfully with Credit Limit of Rs " . money($limit));
+            $pdo->beginTransaction();
+            try {
+                // 1. Save Customer
+                $stmt = $pdo->prepare("INSERT INTO udhar_customers (name, phone, address, credit_limit, opening_balance, notes) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$name, $phone ?: null, $address ?: null, $limit, $opening, $notes ?: null]);
+                $customerId = (int) $pdo->lastInsertId();
+
+                // 2. Automatically create Opening Balance record in Ledger so payment can be received
+                if ($opening > 0) {
+                    $lStmt = $pdo->prepare("INSERT INTO udhar_ledger (customer_id, sale_id, buyer_name, buyer_phone, total_amount, paid_amount, balance_amount, status) VALUES (?, NULL, ?, ?, ?, 0, ?, 'Pending')");
+                    $lStmt->execute([$customerId, $name, $phone ?: null, $opening, $opening]);
+                }
+
+                $pdo->commit();
+                flash('success', "Udhar Customer '$name' registered successfully with Credit Limit of Rs " . money($limit) . ($opening > 0 ? " and Opening Balance of Rs " . money($opening) : ''));
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                flash('error', $e->getMessage());
+            }
         } else {
             flash('error', 'Customer name is required.');
         }
@@ -74,12 +91,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone = post_string('phone');
         $address = post_string('address');
         $limit = post_float('credit_limit');
+        $opening = post_float('opening_balance');
         $notes = post_string('notes');
 
         if ($id && $name) {
-            $stmt = $pdo->prepare("UPDATE udhar_customers SET name = ?, phone = ?, address = ?, credit_limit = ?, notes = ? WHERE id = ?");
-            $stmt->execute([$name, $phone ?: null, $address ?: null, $limit, $notes ?: null, $id]);
-            flash('success', "Customer '$name' details and credit limit updated successfully!");
+            $pdo->beginTransaction();
+            try {
+                // 1. Update Customer table
+                $stmt = $pdo->prepare("UPDATE udhar_customers SET name = ?, phone = ?, address = ?, credit_limit = ?, opening_balance = ?, notes = ? WHERE id = ?");
+                $stmt->execute([$name, $phone ?: null, $address ?: null, $limit, $opening, $notes ?: null, $id]);
+
+                // 2. Update existing opening balance entry in udhar_ledger or create new one
+                $chkLedger = $pdo->prepare("SELECT id, paid_amount FROM udhar_ledger WHERE customer_id = ? AND sale_id IS NULL ORDER BY id ASC LIMIT 1");
+                $chkLedger->execute([$id]);
+                $existingLedger = $chkLedger->fetch();
+
+                if ($existingLedger) {
+                    $paidAmt = (float) $existingLedger['paid_amount'];
+                    $newBalance = max(0.0, $opening - $paidAmt);
+                    $newStatus = $newBalance <= 0 ? 'Cleared' : 'Pending';
+
+                    $uLedger = $pdo->prepare("UPDATE udhar_ledger SET buyer_name = ?, buyer_phone = ?, total_amount = ?, balance_amount = ?, status = ? WHERE id = ?");
+                    $uLedger->execute([$name, $phone ?: null, $opening, $newBalance, $newStatus, $existingLedger['id']]);
+                } elseif ($opening > 0) {
+                    $lStmt = $pdo->prepare("INSERT INTO udhar_ledger (customer_id, sale_id, buyer_name, buyer_phone, total_amount, paid_amount, balance_amount, status) VALUES (?, NULL, ?, ?, ?, 0, ?, 'Pending')");
+                    $lStmt->execute([$id, $name, $phone ?: null, $opening, $opening]);
+                }
+
+                // Also update buyer_name & buyer_phone in all ledger entries for this customer
+                $uAll = $pdo->prepare("UPDATE udhar_ledger SET buyer_name = ?, buyer_phone = ? WHERE customer_id = ?");
+                $uAll->execute([$name, $phone ?: null, $id]);
+
+                $pdo->commit();
+                flash('success', "Customer '$name' details, limit, and current udhar updated successfully!");
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                flash('error', $e->getMessage());
+            }
         } else {
             flash('error', 'Valid customer details required.');
         }
@@ -102,7 +150,7 @@ $totalUdharGiven = (float) $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FR
 $totalUdharRecovered = (float) $pdo->query("SELECT COALESCE(SUM(paid_amount), 0) FROM udhar_ledger")->fetchColumn();
 $totalOutstanding = (float) $pdo->query("SELECT COALESCE(SUM(balance_amount), 0) FROM udhar_ledger WHERE status = 'Pending'")->fetchColumn();
 
-$todayGiven = (float) $pdo->query("SELECT COALESCE(SUM(ul.total_amount), 0) FROM udhar_ledger ul JOIN sales s ON s.id = ul.sale_id WHERE DATE(s.created_at) = CURDATE()")->fetchColumn();
+$todayGiven = (float) $pdo->query("SELECT COALESCE(SUM(ul.total_amount), 0) FROM udhar_ledger ul LEFT JOIN sales s ON s.id = ul.sale_id WHERE (s.id IS NOT NULL AND DATE(s.created_at) = CURDATE()) OR (s.id IS NULL AND DATE(ul.updated_at) = CURDATE())")->fetchColumn();
 $todayRecovered = (float) $pdo->query("SELECT COALESCE(SUM(amount_paid), 0) FROM udhar_payments WHERE date = CURDATE()")->fetchColumn();
 
 // Active Tab & Filters
@@ -115,13 +163,13 @@ if ($filter === 'pending') {
     $where = "WHERE ul.status = 'Cleared'";
 }
 
-$udhars = $pdo->query("SELECT ul.*, s.invoice_number, s.created_at as sale_date 
+$udhars = $pdo->query("SELECT ul.*, COALESCE(s.invoice_number, 'OPENING-BAL') as invoice_number, COALESCE(s.created_at, ul.updated_at) as sale_date 
     FROM udhar_ledger ul 
-    JOIN sales s ON s.id = ul.sale_id 
+    LEFT JOIN sales s ON s.id = ul.sale_id 
     $where 
     ORDER BY ul.status ASC, ul.id DESC")->fetchAll();
 
-// Fetch Udhar Customers with live balance and limit calculation
+// Fetch Udhar Customers with live balance calculation
 $customers = $pdo->query("SELECT c.*,
     COALESCE((
         SELECT SUM(ul.balance_amount) 
@@ -139,10 +187,10 @@ $customers = $pdo->query("SELECT c.*,
     ORDER BY current_balance DESC, c.name ASC")->fetchAll();
 
 // Fetch recent payment receipts
-$recentRecoveries = $pdo->query("SELECT up.*, ul.buyer_name, ul.buyer_phone, s.invoice_number, u.username as recorded_by_user 
+$recentRecoveries = $pdo->query("SELECT up.*, ul.buyer_name, ul.buyer_phone, COALESCE(s.invoice_number, 'OPENING-BAL') as invoice_number, u.username as recorded_by_user 
     FROM udhar_payments up 
     JOIN udhar_ledger ul ON ul.id = up.udhar_id 
-    JOIN sales s ON s.id = up.sale_id 
+    LEFT JOIN sales s ON s.id = up.sale_id 
     LEFT JOIN users u ON u.id = up.created_by 
     ORDER BY up.id DESC 
     LIMIT 15")->fetchAll();
@@ -215,7 +263,7 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <?php if ($activeTab === 'customers'): ?>
-<!-- ==================== REGISTERED UDHAR CUSTOMERS & LIMITS ==================== -->
+<!-- REGISTERED UDHAR CUSTOMERS & LIMITS -->
 <div class="card">
     <div class="card-header">
         <div>
@@ -301,7 +349,7 @@ include __DIR__ . '/../includes/header.php';
                                 <td class="text-right">
                                     <div style="display: inline-flex; gap: 6px;">
                                         <button type="button" class="btn btn-sm btn-light" onclick="openEditCustomerModal(<?= htmlspecialchars(json_encode($c), ENT_QUOTES, 'UTF-8') ?>)">
-                                            Edit Limit
+                                            Edit Customer
                                         </button>
                                         <form method="post" style="display:inline;" onsubmit="return confirm('Remove \'<?= e(addslashes($c['name'])) ?>\' from credit registry?');">
                                             <input type="hidden" name="csrf" value="<?= csrf_token() ?>">
@@ -322,7 +370,7 @@ include __DIR__ . '/../includes/header.php';
 
 <?php else: ?>
 
-<!-- ==================== UDHAR INVOICES TABLE ==================== -->
+<!-- UDHAR INVOICES TABLE -->
 <div class="card">
     <div class="card-header">
         <h3>Customer Credit Invoices (<?= count($udhars) ?>)</h3>
@@ -360,9 +408,13 @@ include __DIR__ . '/../includes/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <a href="<?= url('/print_invoice.php?invoice=' . urlencode($u['invoice_number'])) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
-                                        <?= e($u['invoice_number']) ?>
-                                    </a>
+                                    <?php if ($u['sale_id']): ?>
+                                        <a href="<?= url('/print_invoice.php?invoice=' . urlencode($u['invoice_number'])) ?>" target="_blank" style="color: var(--primary); font-weight: 700;">
+                                            <?= e($u['invoice_number']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="badge badge-gray">Purana Udhar</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?= date('d M Y', strtotime($u['sale_date'])) ?></td>
                                 <td class="text-right">Rs <?= money($u['total_amount']) ?></td>
@@ -458,7 +510,7 @@ include __DIR__ . '/../includes/header.php';
 </div>
 <?php endif; ?>
 
-<!-- ==================== ADD CUSTOMER MODAL ==================== -->
+<!-- ADD CUSTOMER MODAL -->
 <div id="addCustomerModal" class="modal-overlay">
     <div class="modal-content" style="max-width: 520px;">
         <div class="modal-header">
@@ -489,6 +541,12 @@ include __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="form-group">
+                    <label>Current Udhar / Opening Balance (Rs)</label>
+                    <input type="number" step="0.01" min="0" name="opening_balance" class="form-control" value="0.00" placeholder="e.g. 2500 (iska pehle se jo udhar hai)">
+                    <small class="text-muted">⚠️ Is customer ka pehle se jitna udhar tha woh yahan darj karein (0 if none)</small>
+                </div>
+
+                <div class="form-group">
                     <label>Address / Location</label>
                     <input type="text" name="address" class="form-control" placeholder="e.g. Street 4, Commercial Market">
                 </div>
@@ -506,7 +564,7 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- ==================== EDIT CUSTOMER MODAL ==================== -->
+<!-- EDIT CUSTOMER MODAL -->
 <div id="editCustomerModal" class="modal-overlay">
     <div class="modal-content" style="max-width: 520px;">
         <div class="modal-header">
@@ -531,10 +589,16 @@ include __DIR__ . '/../includes/header.php';
                     </div>
 
                     <div class="form-group">
-                        <label>Credit Limit (Rs) <span class="text-danger">*</span></label>
+                        <label>Credit Limit (Rs)</label>
                         <input type="number" step="0.01" name="credit_limit" id="edit_cust_limit" class="form-control" required>
                         <small class="text-muted">Set 0 for unlimited credit</small>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Current Udhar / Opening Balance (Rs)</label>
+                    <input type="number" step="0.01" min="0" name="opening_balance" id="edit_cust_opening" class="form-control">
+                    <small class="text-muted">⚠️ Is customer ka current udhar balance update karein</small>
                 </div>
 
                 <div class="form-group">
@@ -549,13 +613,13 @@ include __DIR__ . '/../includes/header.php';
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-light" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-success">Update Customer & Limit</button>
+                <button type="submit" class="btn btn-success">Update Customer & Balance</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ==================== RECEIVE PAYMENT MODAL ==================== -->
+<!-- RECEIVE PAYMENT MODAL -->
 <div id="receiveUdharModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
@@ -622,10 +686,21 @@ function openEditCustomerModal(cust) {
     document.getElementById('edit_cust_name').value = cust.name;
     document.getElementById('edit_cust_phone').value = cust.phone || '';
     document.getElementById('edit_cust_limit').value = cust.credit_limit || '0.00';
+    document.getElementById('edit_cust_opening').value = cust.current_balance || cust.opening_balance || '0.00';
     document.getElementById('edit_cust_address').value = cust.address || '';
     document.getElementById('edit_cust_notes').value = cust.notes || '';
     document.getElementById('editCustomerModal').classList.add('active');
 }
+
+// Browser Back-Forward cache fix: Tab se wapis aane par popup automatically close aur page refresh ho jaye
+window.addEventListener('pageshow', function(event) {
+    document.querySelectorAll('.modal-overlay').forEach(function(modal) {
+        modal.classList.remove('active');
+    });
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
 </script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

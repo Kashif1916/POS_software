@@ -36,114 +36,155 @@ $autoprint = isset($_GET['autoprint']);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Receipt #<?= e($sale['invoice_number']) ?></title>
-<link rel="stylesheet" href="<?= url('/assets/css/style.css') ?>">
 <style>
+    /* School Receipt Jaisi Sharp & Dark Thermal Formatting */
     body {
-        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f8fafc;
+        color: #000000;
+        width: 80mm;
     }
     .thermal-receipt {
-        width: 320px;
-        margin: 20px auto;
+        width: 76mm;
+        margin: 10px auto;
         background: #fff;
-        padding: 20px 16px;
-        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-        font-size: 12px;
-        color: #0f172a;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        line-height: 1.4;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        padding: 2mm;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+        color: #000000;
+        line-height: 1.3;
     }
     .thermal-header {
         text-align: center;
-        margin-bottom: 12px;
+        margin-bottom: 2mm;
     }
     .thermal-header h2 {
-        font-size: 17px;
-        font-weight: 800;
+        font-size: 18px;
+        font-weight: 900;
         margin: 0 0 2px 0;
         text-transform: uppercase;
-        color: #0f172a;
-        letter-spacing: -0.2px;
+        color: #000000;
     }
     .thermal-header p {
-        margin: 2px 0;
-        font-size: 11px;
-        color: #475569;
+        margin: 1mm 0;
+        font-size: 12px;
+        font-weight: bold;
+        color: #000000;
     }
     .thermal-line {
-        border-top: 1px dashed #cbd5e1;
-        margin: 10px 0;
+        border-top: 1.5px solid #000000;
+        margin: 2mm 0;
     }
     .thermal-meta {
-        font-size: 11.5px;
-        margin-bottom: 8px;
-        color: #334155;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 2mm;
+        color: #000000;
     }
     .thermal-meta div {
-        margin-bottom: 2px;
+        margin-bottom: 1.5mm;
     }
     .thermal-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11.5px;
+        font-size: 12px;
+        color: #000000;
+        margin-bottom: 2mm;
     }
     .thermal-table th {
-        border-top: 1px dashed #cbd5e1;
-        border-bottom: 1px dashed #cbd5e1;
-        padding: 5px 0;
+        border-bottom: 1.5px solid #000000;
+        border-top: 1.5px solid #000000;
+        padding: 2mm 0;
         text-align: left;
-        font-weight: 700;
-        color: #0f172a;
+        font-weight: 900;
+        color: #000000;
         text-transform: uppercase;
-        font-size: 10.5px;
+        font-size: 11px;
     }
     .thermal-table td {
-        padding: 5px 0;
+        padding: 2mm 0;
         vertical-align: top;
-        color: #1e293b;
+        color: #000000;
+        border-bottom: 1px dashed #000000;
+        font-weight: 600;
     }
     .thermal-totals {
-        margin-top: 6px;
-        font-size: 12px;
-        color: #1e293b;
+        margin-top: 2mm;
+        font-size: 13px;
+        font-weight: bold;
+        color: #000000;
     }
     .thermal-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 4px;
+        margin-bottom: 1.5mm;
     }
     .thermal-grand {
-        font-size: 14.5px;
-        font-weight: 800;
-        border-top: 1px dashed #0f172a;
-        border-bottom: 1px dashed #0f172a;
-        padding: 7px 0;
-        margin: 8px 0;
-        color: #0f172a;
+        font-size: 16px;
+        font-weight: 900;
+        border-top: 2px solid #000000;
+        border-bottom: 2px solid #000000;
+        padding: 2mm 0;
+        margin: 2mm 0;
+        color: #000000;
     }
     .thermal-footer {
         text-align: center;
         font-size: 11px;
-        margin-top: 15px;
-        color: #475569;
+        font-weight: bold;
+        margin-top: 3mm;
+        color: #000000;
     }
-    .barcode-text {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        margin-top: 6px;
-        color: #0f172a;
-        font-family: inherit;
+
+    /* Offline Urdu Font Style */
+    .urdu-text {
+        font-family: 'Urdu Typesetting', 'Traditional Arabic', 'Jameel Noori Nastaliq', 'Noto Nastaliq Urdu', 'Segoe UI', Arial, sans-serif !important;
+        font-size: 18.5px !important;
+        font-weight: bold !important;
+        line-height: 1.6 !important;
+        direction: rtl;
+        text-align: center;
+        color: #000000 !important;
+    }
+
+    /* Print Specific Styles */
+    @media print {
+        @page {
+            margin: 0;
+            size: 80mm auto;
+        }
+        body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 80mm !important;
+        }
+        .no-print {
+            display: none !important;
+        }
+        .thermal-receipt {
+            width: 76mm !important;
+            margin: 0 !important;
+            padding: 2mm !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        * {
+            color: #000000 !important;
+            text-shadow: none !important;
+        }
     }
 </style>
 </head>
-<body style="background: #f8fafc;">
+<body>
 <div style="text-align: center; margin: 20px 0;" class="no-print">
-    <button onclick="window.print()" class="btn btn-primary">
+    <button onclick="window.print()" style="padding: 8px 16px; font-weight: bold; cursor: pointer;">
         🖨️ Print Receipt (80mm)
     </button>
-    <button onclick="window.close()" class="btn btn-light">Close Window</button>
+    <button onclick="window.close()" style="padding: 8px 16px; font-weight: bold; cursor: pointer;">Close Window</button>
 </div>
 
 <div class="thermal-receipt">
@@ -187,13 +228,13 @@ $autoprint = isset($_GET['autoprint']);
                 }
             ?>
                 <tr>
-                    <td>
+                    <td style="font-weight: bold;">
                         <?= e($item['product_name']) ?>
-                        <?php if ($isKg): ?><small style="color:#64748b; font-size:10px;"> (KG)</small><?php endif; ?>
+                        <?php if ($isKg): ?><small style="font-size:10px;"> (KG)</small><?php endif; ?>
                     </td>
-                    <td style="text-align: center; font-weight: 600;"><?= $qtyText ?></td>
+                    <td style="text-align: center; font-weight: bold;"><?= $qtyText ?></td>
                     <td style="text-align: right;"><?= money($item['unit_price']) ?><?= $isKg ? '<small style="font-size:10px;">/kg</small>' : '' ?></td>
-                    <td style="text-align: right; font-weight: 700;"><?= money($item['total_price']) ?></td>
+                    <td style="text-align: right; font-weight: 900;"><?= money($item['total_price']) ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -228,7 +269,7 @@ $autoprint = isset($_GET['autoprint']);
                 <span>Rs <?= money($sale['change_returned']) ?></span>
             </div>
         <?php elseif ($sale['payment_mode'] === 'Udhar'): ?>
-            <div class="thermal-row" style="color: #b45309; font-weight: 700;">
+            <div class="thermal-row" style="font-weight: 900;">
                 <span>CREDIT / UDHAR BILL</span>
                 <span>Pending</span>
             </div>
@@ -238,9 +279,8 @@ $autoprint = isset($_GET['autoprint']);
     <div class="thermal-line"></div>
 
     <div class="thermal-footer">
-        <p><?= nl2br(e($settings['receipt_footer'])) ?></p>
-      
-        
+         <p class="urdu-text" style="margin: 0 0 4px 0;">اپنے کاروبار کے لیے 2000 روپے ماہانہ پر سافٹ ویئر حاصل کرنے کے لیے رابطہ کریں</p>
+            <p style="font-size: 12px; color: #000; margin: 0;">KJ Software House Khushab<br>Phone: 03180711280</p>
     </div>
 </div>
 
