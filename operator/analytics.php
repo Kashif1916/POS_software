@@ -82,23 +82,51 @@ $expScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$
 $retScopeSql = $selectedUserId ? " AND created_by = ?" : "";
 $retScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
-// 1. Sales & Revenue Metrics for selected range (NO cost, NO profit!)
+// 1. Returns & Refunds in this range
+$retStmt = $pdo->prepare("SELECT 
+    COUNT(*) as return_count,
+    COALESCE(SUM(r.refund_amount), 0) as total_refunds,
+    COALESCE(SUM(CASE WHEN s.payment_mode = 'Cash' THEN r.refund_amount ELSE 0 END), 0) as cash_refunds,
+    COALESCE(SUM(CASE WHEN s.payment_mode = 'Udhar' THEN r.refund_amount ELSE 0 END), 0) as udhar_refunds
+    FROM returns r
+    LEFT JOIN sales s ON s.id = r.sale_id
+    WHERE r.date BETWEEN ? AND ? $retScopeSql");
+$retStmt->execute($retScopeParams);
+$retData = $retStmt->fetch();
+
+// 2. Raw Sales Metrics from sales table
 $salesStmt = $pdo->prepare("SELECT 
-    COUNT(CASE WHEN status = 'Completed' THEN 1 END) as total_invoices,
-    COALESCE(SUM(CASE WHEN status = 'Completed' THEN net_payable ELSE 0 END), 0) as total_sales,
-    COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) as cash_sales,
-    COUNT(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN 1 END) as cash_count,
-    COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) as bank_sales,
-    COUNT(CASE WHEN status = 'Completed' AND payment_mode = 'Bank' THEN 1 END) as bank_count,
-    COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) as udhar_sales,
-    COUNT(CASE WHEN status = 'Completed' AND payment_mode = 'Udhar' THEN 1 END) as udhar_count,
-    COALESCE(SUM(CASE WHEN status = 'Completed' THEN bonus_discount ELSE 0 END), 0) as total_discounts
+    COUNT(*) as total_invoices,
+    COALESCE(SUM(net_payable), 0) as raw_total_sales,
+    COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) as cash_sales,
+    COUNT(CASE WHEN payment_mode = 'Cash' THEN 1 END) as cash_count,
+    COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) as bank_sales,
+    COUNT(CASE WHEN payment_mode = 'Bank' THEN 1 END) as bank_count,
+    COALESCE(SUM(CASE WHEN payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) as udhar_sales,
+    COUNT(CASE WHEN payment_mode = 'Udhar' THEN 1 END) as udhar_count,
+    COALESCE(SUM(bonus_discount), 0) as total_discounts
     FROM sales 
     WHERE DATE(created_at) BETWEEN ? AND ? $salesScopeSql");
 $salesStmt->execute($salesScopeParams);
 $salesData = $salesStmt->fetch();
 
-// 2. Customer Udhar Collected (Wasooli) in this range
+// Calculate NET TOTAL SALE (Gross Sales minus Returns)
+$netTotalSales = max(0.0, (float) $salesData['raw_total_sales'] - (float) $retData['total_refunds']);
+
+// 3. Udhar Given Query (Udhar Ledger Table Se Direct Total Amount Fetching)
+$udharLedgerScopeSql = $selectedUserId ? " AND (s.operator_id = ? OR ul.customer_id IS NOT NULL)" : "";
+$udharGivenParams = $selectedUserId ? [$startDate, $endDate, $startDate, $endDate, $selectedUserId] : [$startDate, $endDate, $startDate, $endDate];
+
+$udharGivenStmt = $pdo->prepare("SELECT COALESCE(SUM(ul.total_amount), 0) 
+    FROM udhar_ledger ul 
+    LEFT JOIN sales s ON s.id = ul.sale_id 
+    WHERE ((s.id IS NOT NULL AND DATE(s.created_at) BETWEEN ? AND ?) 
+       OR (s.id IS NULL AND DATE(ul.updated_at) BETWEEN ? AND ?)) 
+    $udharLedgerScopeSql");
+$udharGivenStmt->execute($udharGivenParams);
+$udharGiven = (float) $udharGivenStmt->fetchColumn();
+
+// 4. Customer Udhar Collected (Wasooli) in this range
 $udharStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(amount_paid), 0) as total_recovered,
     COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN amount_paid ELSE 0 END), 0) as cash_recovered,
@@ -108,7 +136,7 @@ $udharStmt = $pdo->prepare("SELECT
 $udharStmt->execute($udharScopeParams);
 $udharData = $udharStmt->fetch();
 
-// 3. Dealer Payments Made in this range
+// 5. Dealer Payments Made in this range
 $dealerStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(paid_amount), 0) as total_dealer_paid,
     COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN paid_amount ELSE 0 END), 0) as cash_dealer_paid,
@@ -118,7 +146,7 @@ $dealerStmt = $pdo->prepare("SELECT
 $dealerStmt->execute($dealerScopeParams);
 $dealerData = $dealerStmt->fetch();
 
-// 4. Operating Expenses in this range
+// 6. Operating Expenses in this range
 $expStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(amount), 0) as total_expenses,
     COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN amount ELSE 0 END), 0) as cash_expenses,
@@ -128,24 +156,12 @@ $expStmt = $pdo->prepare("SELECT
 $expStmt->execute($expScopeParams);
 $expData = $expStmt->fetch();
 
-// 5. Returns & Refunds in this range
-$retStmt = $pdo->prepare("SELECT 
-    COUNT(*) as return_count,
-    COALESCE(SUM(refund_amount), 0) as total_refunds
-    FROM returns 
-    WHERE date BETWEEN ? AND ? $retScopeSql");
-$retStmt->execute($retScopeParams);
-$retData = $retStmt->fetch();
-
 // PHYSICAL CASH DRAWER RECONCILIATION MATH
-// Inflow: Cash sales + Udhar collected in cash
 $cashInflow = (float) $salesData['cash_sales'] + (float) $udharData['cash_recovered'];
-// Outflow: Cash expenses + Dealer cash payments + Return refunds
-$cashOutflow = (float) $dealerData['cash_dealer_paid'] + (float) $expData['cash_expenses'] + (float) $retData['total_refunds'];
-// Net cash that MUST be physically in drawer
+$cashOutflow = (float) $dealerData['cash_dealer_paid'] + (float) $expData['cash_expenses'] + (float) $retData['cash_refunds'];
 $expectedDrawerCash = $cashInflow - $cashOutflow;
 
-// 6. Day-by-Day performance table & trend data (NO cost, NO profit!)
+// 7. Day-by-Day performance table & trend data
 $daysScopeSql = $selectedUserId ? " AND s.operator_id = ?" : "";
 $daysScopeParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
@@ -159,9 +175,9 @@ $daysQuery = $pdo->prepare("SELECT
     COALESCE((SELECT SUM(amount_paid) FROM udhar_payments WHERE payment_mode = 'Cash' AND date = DATE(s.created_at)), 0) as day_udhar_cash,
     COALESCE((SELECT SUM(amount) FROM expenses WHERE payment_mode = 'Cash' AND date = DATE(s.created_at)), 0) as day_expenses_cash,
     COALESCE((SELECT SUM(paid_amount) FROM dealer_payments WHERE payment_mode = 'Cash' AND date = DATE(s.created_at)), 0) as day_dealer_cash,
-    COALESCE((SELECT SUM(refund_amount) FROM returns WHERE date = DATE(s.created_at)), 0) as day_refunds
+    COALESCE((SELECT SUM(r.refund_amount) FROM returns r JOIN sales s3 ON s3.id = r.sale_id WHERE s3.payment_mode = 'Cash' AND r.date = DATE(s.created_at)), 0) as day_refunds
     FROM sales s 
-    WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ? $daysScopeSql
+    WHERE DATE(s.created_at) BETWEEN ? AND ? $daysScopeSql
     GROUP BY DATE(s.created_at)
     ORDER BY day_date ASC");
 $daysQuery->execute($daysScopeParams);
@@ -177,7 +193,7 @@ foreach ($daysList as $d) {
     $chartCashIn[] = (float) $d['day_cash'] + (float) $d['day_udhar_cash'];
 }
 
-// 7. Top Selling Products (Filtered to revenue & quantity only - NO profit/cost!)
+// 8. Top Selling Products
 $topProdScopeSql = $selectedUserId ? " AND s.operator_id = ?" : "";
 $topProdParams = $selectedUserId ? [$startDate, $endDate, $selectedUserId] : [$startDate, $endDate];
 
@@ -190,7 +206,7 @@ $topProductsStmt = $pdo->prepare("SELECT
     JOIN sales s ON s.id = si.sale_id 
     JOIN products p ON p.id = si.product_id 
     LEFT JOIN categories c ON c.id = p.category_id 
-    WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ? $topProdScopeSql
+    WHERE DATE(s.created_at) BETWEEN ? AND ? $topProdScopeSql
     GROUP BY si.product_id 
     ORDER BY qty_sold DESC 
     LIMIT 8");
@@ -290,31 +306,63 @@ include __DIR__ . '/../includes/header.php';
                 </p>
             </div>
 
-            <!-- Quick Equation Pill -->
-            <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; box-shadow: var(--shadow-sm); min-width: 290px;">
-                <div style="font-size: 12px; font-weight: 700; color: #166534; margin-bottom: 6px; text-transform: uppercase;">
+            <!-- CASH DRAWER FORMULA BOX -->
+            <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; box-shadow: var(--shadow-sm); min-width: 320px;">
+                <div style="font-size: 12px; font-weight: 700; color: #166534; margin-bottom: 8px; text-transform: uppercase;">
                     Cash Drawer Formula:
                 </div>
+                
+                <!-- 1. Total Net Sale with Udhar -->
+                <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 700; color: #1e293b;">
+                    <span>(+) Total Sale (With Udhar - Net):</span>
+                    <span class="text-primary">+ Rs <?= money($netTotalSales) ?></span>
+                </div>
+
+                <!-- 2. Cash Sales Received -->
                 <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <span class="text-muted">(+) Cash Sales Received:</span>
                     <strong class="text-success">+ Rs <?= money($salesData['cash_sales']) ?></strong>
                 </div>
+
+                <!-- 3. Udhar Wasooli (Cash) -->
                 <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <span class="text-muted">(+) Udhar Wasooli (Cash):</span>
                     <strong class="text-success">+ Rs <?= money($udharData['cash_recovered']) ?></strong>
                 </div>
+
+                <!-- 4. Minus: Udhar Sales Given -->
+                <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span class="text-muted">(&minus;) Naya Udhar Diya (Minus):</span>
+                    <strong class="text-warning">&minus; Rs <?= money($udharGiven) ?></strong>
+                </div>
+
+                <!-- 5. Minus: Bank Sales -->
+                <?php if ($salesData['bank_sales'] > 0): ?>
+                    <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span class="text-muted">(&minus;) Bank Sales (Digital):</span>
+                        <strong class="text-info">&minus; Rs <?= money($salesData['bank_sales']) ?></strong>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 6. Minus: Expenses -->
                 <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <span class="text-muted">(&minus;) Expenses Paid (Cash):</span>
                     <strong class="text-danger">&minus; Rs <?= money($expData['cash_expenses']) ?></strong>
                 </div>
+
+                <!-- 7. Minus: Dealer Paid -->
                 <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <span class="text-muted">(&minus;) Dealer Paid (Cash):</span>
                     <strong class="text-danger">&minus; Rs <?= money($dealerData['cash_dealer_paid']) ?></strong>
                 </div>
+
+                <!-- 8. Minus: Cash Refunds -->
                 <div style="font-size: 12.5px; display: flex; justify-content: space-between; margin-bottom: 6px;">
-                    <span class="text-muted">(&minus;) Returns Refunded:</span>
-                    <strong class="text-danger">&minus; Rs <?= money($retData['total_refunds']) ?></strong>
+                    <span class="text-muted">(&minus;) Cash Returns Refunded:</span>
+                    <strong class="text-danger">&minus; Rs <?= money($retData['cash_refunds']) ?></strong>
                 </div>
+
+                <!-- Result -->
                 <div style="border-top: 1px dashed #86efac; padding-top: 6px; font-size: 13.5px; display: flex; justify-content: space-between; font-weight: 800; color: #15803d;">
                     <span>Net Drawer Cash:</span>
                     <span>Rs <?= money($expectedDrawerCash) ?></span>
@@ -328,7 +376,7 @@ include __DIR__ . '/../includes/header.php';
      PRIMARY METRICS: SALES REVENUE & PAYMENT MODES
      ============================================================== -->
 <div class="stats-row">
-    <!-- Total Sales Billing -->
+    <!-- Total Sales Revenue (NET SALES AFTER RETURNS) -->
     <div class="stat-box primary">
         <div class="stat-box-header">
             <span class="stat-title">Total Sales Revenue</span>
@@ -336,8 +384,8 @@ include __DIR__ . '/../includes/header.php';
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             </div>
         </div>
-        <div class="stat-value">Rs <?= money($salesData['total_sales']) ?></div>
-        <div class="stat-desc"><?= $salesData['total_invoices'] ?> Invoices completed &middot; Rs <?= money($salesData['total_discounts']) ?> disc.</div>
+        <div class="stat-value">Rs <?= money($netTotalSales) ?></div>
+        <div class="stat-desc"><?= $salesData['total_invoices'] ?> Invoices &middot; Net after returns</div>
     </div>
 
     <!-- Cash Sales -->
@@ -372,8 +420,8 @@ include __DIR__ . '/../includes/header.php';
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             </div>
         </div>
-        <div class="stat-value text-warning">Rs <?= money($salesData['udhar_sales']) ?></div>
-        <div class="stat-desc"><?= $salesData['udhar_count'] ?> Bills given on credit</div>
+        <div class="stat-value text-warning">Rs <?= money($udharGiven) ?></div>
+        <div class="stat-desc">Credit ledger net amount issued</div>
     </div>
 </div>
 
@@ -426,13 +474,11 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
         <div class="stat-value"><?= $retData['return_count'] ?> Items</div>
-        <div class="stat-desc">Refunded Cash: <strong>Rs <?= money($retData['total_refunds']) ?></strong></div>
+        <div class="stat-desc">Refunded Total: <strong>Rs <?= money($retData['total_refunds']) ?></strong></div>
     </div>
 </div>
 
-<!-- ==============================================================
-     CHARTS: SALES TREND & PAYMENT DISTRIBUTION
-     ============================================================== -->
+<!-- CHARTS -->
 <div class="dashboard-grid" style="margin-top: 24px;">
     <div class="card">
         <div class="card-header">
@@ -459,11 +505,8 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- ==============================================================
-     DAY-BY-DAY AUDIT & TOP SELLING ITEMS
-     ============================================================== -->
+<!-- DAY-BY-DAY AUDIT & TOP SELLING ITEMS -->
 <div class="row" style="margin-top: 20px;">
-    <!-- Day-by-Day Breakdown (Crucial for 3 days / 7 days hisab) -->
     <div class="col-8">
         <div class="card">
             <div class="card-header">
@@ -532,7 +575,6 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </div>
 
-    <!-- Top Selling Items (Clean - Quantity and Sales only) -->
     <div class="col-4">
         <div class="card">
             <div class="card-header">
@@ -579,9 +621,7 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- ==============================================================
-     PRINTABLE SUMMARY AUDIT SHEET (Visible on print)
-     ============================================================== -->
+<!-- PRINTABLE SUMMARY AUDIT SHEET -->
 <div class="printable-drawer-summary" style="display: none;">
     <div style="text-align: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px;">
         <h2 style="margin: 0; font-size: 20px; text-transform: uppercase;">Operator Shift & Drawer Closing Hisab</h2>
@@ -595,8 +635,8 @@ include __DIR__ . '/../includes/header.php';
             <td style="text-align: right; font-weight: bold;"><?= $salesData['total_invoices'] ?></td>
         </tr>
         <tr style="border-bottom: 1px solid #ccc;">
-            <td style="padding: 6px 0;">Total Sales Revenue:</td>
-            <td style="text-align: right; font-weight: bold;">Rs <?= money($salesData['total_sales']) ?></td>
+            <td style="padding: 6px 0;">Total Sales Revenue (Net):</td>
+            <td style="text-align: right; font-weight: bold;">Rs <?= money($netTotalSales) ?></td>
         </tr>
         <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 6px 0;">Cash Sales Collected:</td>
@@ -607,6 +647,10 @@ include __DIR__ . '/../includes/header.php';
             <td style="text-align: right; font-weight: bold;">Rs <?= money($udharData['cash_recovered']) ?></td>
         </tr>
         <tr style="border-bottom: 1px solid #ccc;">
+            <td style="padding: 6px 0;">Naya Udhar Sales (Credit):</td>
+            <td style="text-align: right; font-weight: bold; color: #b45309;">&minus; Rs <?= money($udharGiven) ?></td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 6px 0;">Expenses Paid from Drawer:</td>
             <td style="text-align: right; font-weight: bold; color: #dc2626;">&minus; Rs <?= money($expData['cash_expenses']) ?></td>
         </tr>
@@ -615,8 +659,8 @@ include __DIR__ . '/../includes/header.php';
             <td style="text-align: right; font-weight: bold; color: #dc2626;">&minus; Rs <?= money($dealerData['cash_dealer_paid']) ?></td>
         </tr>
         <tr style="border-bottom: 1px solid #ccc;">
-            <td style="padding: 6px 0;">Returns / Refunds Paid Back:</td>
-            <td style="text-align: right; font-weight: bold; color: #dc2626;">&minus; Rs <?= money($retData['total_refunds']) ?></td>
+            <td style="padding: 6px 0;">Returns / Refunds Paid Back (Cash):</td>
+            <td style="text-align: right; font-weight: bold; color: #dc2626;">&minus; Rs <?= money($retData['cash_refunds']) ?></td>
         </tr>
         <tr style="border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 16px;">
             <td style="padding: 10px 0; font-weight: 900;">EXPECTED CASH IN DRAWER:</td>
@@ -648,7 +692,6 @@ include __DIR__ . '/../includes/header.php';
 </style>
 
 <script>
-// Sales & Cash In Trend Chart
 const ctxTrend = document.getElementById('operatorTrendChart').getContext('2d');
 new Chart(ctxTrend, {
     type: 'bar',
@@ -677,31 +720,23 @@ new Chart(ctxTrend, {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: {
-                position: 'top',
-                labels: { font: { weight: 600 } }
-            }
+            legend: { position: 'top', labels: { font: { weight: 600 } } }
         },
         scales: {
             y: {
                 beginAtZero: true,
                 grid: { color: '#f1f5f9' },
-                ticks: {
-                    callback: (val) => 'Rs ' + val.toLocaleString()
-                }
+                ticks: { callback: (val) => 'Rs ' + val.toLocaleString() }
             },
-            x: {
-                grid: { display: false }
-            }
+            x: { grid: { display: false } }
         }
     }
 });
 
-// Payment Mode chart
 const ctxMode = document.getElementById('operatorModeChart').getContext('2d');
 const cashAmt = <?= (float) $salesData['cash_sales'] ?>;
 const bankAmt = <?= (float) $salesData['bank_sales'] ?>;
-const udharAmt = <?= (float) $salesData['udhar_sales'] ?>;
+const udharAmt = <?= (float) $udharGiven ?>;
 const hasData = (cashAmt + bankAmt + udharAmt) > 0;
 
 new Chart(ctxMode, {
@@ -720,10 +755,7 @@ new Chart(ctxMode, {
         maintainAspectRatio: false,
         cutout: '68%',
         plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { boxWidth: 12, font: { weight: 600 } }
-            }
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { weight: 600 } } }
         }
     }
 });

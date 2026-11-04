@@ -241,19 +241,19 @@ function post_float(string $key, float $default = 0.0): float
 function today_stats(PDO $pdo): array
 {
     $salesRow = $pdo->query("SELECT
-        COALESCE(SUM(CASE WHEN status = 'Completed' THEN net_payable ELSE 0 END), 0) AS total_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) AS cash_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) AS bank_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) AS udhar_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' THEN bonus_discount ELSE 0 END), 0) AS total_discounts,
-        COUNT(CASE WHEN status = 'Completed' THEN 1 END) AS invoice_count
+        COALESCE(SUM(net_payable), 0) AS total_sales,
+        COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) AS cash_sales,
+        COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) AS bank_sales,
+        COALESCE(SUM(CASE WHEN payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) AS udhar_sales,
+        COALESCE(SUM(bonus_discount), 0) AS total_discounts,
+        COUNT(*) AS invoice_count
         FROM sales WHERE DATE(created_at) = CURDATE()")->fetch();
 
     $cogsRow = $pdo->query("SELECT
         COALESCE(SUM(si.cost_price * si.quantity), 0) AS total_cogs
         FROM sale_items si
         JOIN sales s ON s.id = si.sale_id
-        WHERE s.status = 'Completed' AND DATE(s.created_at) = CURDATE()")->fetch();
+        WHERE DATE(s.created_at) = CURDATE()")->fetch();
 
     $dealerRow = $pdo->query("SELECT
         COALESCE(SUM(paid_amount), 0) AS total_paid,

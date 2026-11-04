@@ -43,32 +43,56 @@ if ($startDate > $endDate) {
     $endDate = $temp;
 }
 
-// 1. Sales & Revenue Metrics for selected range
+// 1. Returns & Refunds in this range
+$retStmt = $pdo->prepare("SELECT 
+    COUNT(*) as return_count,
+    COALESCE(SUM(r.refund_amount), 0) as total_refunds,
+    COALESCE(SUM(CASE WHEN s.payment_mode = 'Cash' THEN r.refund_amount ELSE 0 END), 0) as cash_refunds,
+    COALESCE(SUM(CASE WHEN s.payment_mode = 'Udhar' THEN r.refund_amount ELSE 0 END), 0) as udhar_refunds
+    FROM returns r
+    LEFT JOIN sales s ON s.id = r.sale_id
+    WHERE r.date BETWEEN ? AND ?");
+$retStmt->execute([$startDate, $endDate]);
+$retData = $retStmt->fetch();
+
+// 2. Raw Sales Metrics from sales table
 $salesStmt = $pdo->prepare("SELECT 
-    COUNT(CASE WHEN status = 'Completed' THEN 1 END) as total_invoices,
-    COALESCE(SUM(CASE WHEN status = 'Completed' THEN net_payable ELSE 0 END), 0) as total_sales,
-    COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) as cash_sales,
-    COUNT(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN 1 END) as cash_count,
-    COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) as bank_sales,
-    COUNT(CASE WHEN status = 'Completed' AND payment_mode = 'Bank' THEN 1 END) as bank_count,
-    COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) as udhar_sales,
-    COUNT(CASE WHEN status = 'Completed' AND payment_mode = 'Udhar' THEN 1 END) as udhar_count,
-    COALESCE(SUM(CASE WHEN status = 'Completed' THEN bonus_discount ELSE 0 END), 0) as total_discounts
+    COUNT(*) as total_invoices,
+    COALESCE(SUM(net_payable), 0) as raw_total_sales,
+    COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) as cash_sales,
+    COUNT(CASE WHEN payment_mode = 'Cash' THEN 1 END) as cash_count,
+    COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) as bank_sales,
+    COUNT(CASE WHEN payment_mode = 'Bank' THEN 1 END) as bank_count,
+    COALESCE(SUM(CASE WHEN payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) as udhar_sales,
+    COUNT(CASE WHEN payment_mode = 'Udhar' THEN 1 END) as udhar_count,
+    COALESCE(SUM(bonus_discount), 0) as total_discounts
     FROM sales 
     WHERE DATE(created_at) BETWEEN ? AND ?");
 $salesStmt->execute([$startDate, $endDate]);
 $salesData = $salesStmt->fetch();
 
-// 2. Cost of Goods Sold (COGS) for selected range
+// Calculate NET TOTAL SALE (Gross Sales minus Returns)
+$netTotalSales = max(0.0, (float) $salesData['raw_total_sales'] - (float) $retData['total_refunds']);
+
+// 3. Udhar Given Query (Direct Udhar Ledger Querying)
+$udharGivenStmt = $pdo->prepare("SELECT COALESCE(SUM(ul.total_amount), 0) 
+    FROM udhar_ledger ul 
+    LEFT JOIN sales s ON s.id = ul.sale_id 
+    WHERE ((s.id IS NOT NULL AND DATE(s.created_at) BETWEEN ? AND ?) 
+       OR (s.id IS NULL AND DATE(ul.updated_at) BETWEEN ? AND ?))");
+$udharGivenStmt->execute([$startDate, $endDate, $startDate, $endDate]);
+$udharGiven = (float) $udharGivenStmt->fetchColumn();
+
+// 4. Cost of Goods Sold (COGS) for selected range
 $cogsStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(si.cost_price * si.quantity), 0) as total_cogs
     FROM sale_items si 
     JOIN sales s ON s.id = si.sale_id 
-    WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ?");
+    WHERE DATE(s.created_at) BETWEEN ? AND ?");
 $cogsStmt->execute([$startDate, $endDate]);
 $totalCogs = (float) $cogsStmt->fetchColumn();
 
-// 3. Customer Udhar Collected (Wasooli) in this range
+// 5. Customer Udhar Collected (Wasooli) in this range
 $udharStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(amount_paid), 0) as total_recovered,
     COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN amount_paid ELSE 0 END), 0) as cash_recovered,
@@ -78,7 +102,7 @@ $udharStmt = $pdo->prepare("SELECT
 $udharStmt->execute([$startDate, $endDate]);
 $udharData = $udharStmt->fetch();
 
-// 4. Dealer Payments Made in this range
+// 6. Dealer Payments Made in this range
 $dealerStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(paid_amount), 0) as total_dealer_paid,
     COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN paid_amount ELSE 0 END), 0) as cash_dealer_paid,
@@ -88,7 +112,7 @@ $dealerStmt = $pdo->prepare("SELECT
 $dealerStmt->execute([$startDate, $endDate]);
 $dealerData = $dealerStmt->fetch();
 
-// 5. Operating Expenses in this range
+// 7. Operating Expenses in this range
 $expStmt = $pdo->prepare("SELECT 
     COALESCE(SUM(amount), 0) as total_expenses,
     COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN amount ELSE 0 END), 0) as cash_expenses,
@@ -98,25 +122,17 @@ $expStmt = $pdo->prepare("SELECT
 $expStmt->execute([$startDate, $endDate]);
 $expData = $expStmt->fetch();
 
-// 6. Returns & Refunds in this range
-$retStmt = $pdo->prepare("SELECT 
-    COUNT(*) as return_count,
-    COALESCE(SUM(refund_amount), 0) as total_refunds
-    FROM returns 
-    WHERE date BETWEEN ? AND ?");
-$retStmt->execute([$startDate, $endDate]);
-$retData = $retStmt->fetch();
-
 // Profits calculation
-$grossProfit = (float) $salesData['total_sales'] - $totalCogs;
-$netProfit = $grossProfit - (float) $expData['total_expenses'] - (float) $retData['total_refunds'];
+$grossProfit = $netTotalSales - $totalCogs;
+$netProfit = $grossProfit - (float) $expData['total_expenses'];
 
 // Physical Cash Flow in drawer during this period
 $cashInflow = (float) $salesData['cash_sales'] + (float) $udharData['cash_recovered'];
-$cashOutflow = (float) $dealerData['cash_dealer_paid'] + (float) $expData['cash_expenses'] + (float) $retData['total_refunds'];
+$cashOutflow = (float) $dealerData['cash_dealer_paid'] + (float) $expData['cash_expenses'] + (float) $retData['cash_refunds'];
 $netCashFlow = $cashInflow - $cashOutflow;
+$expectedDrawerCash = $netCashFlow;
 
-// 7. Day-by-Day performance table & chart data
+// 8. Day-by-Day performance table & chart data
 $daysQuery = $pdo->prepare("SELECT 
     DATE(s.created_at) as day_date,
     COUNT(*) as invoices_count,
@@ -124,11 +140,11 @@ $daysQuery = $pdo->prepare("SELECT
     SUM(CASE WHEN s.payment_mode = 'Cash' THEN s.net_payable ELSE 0 END) as day_cash,
     SUM(CASE WHEN s.payment_mode = 'Bank' THEN s.net_payable ELSE 0 END) as day_bank,
     SUM(CASE WHEN s.payment_mode = 'Udhar' THEN s.net_payable ELSE 0 END) as day_udhar,
-    COALESCE((SELECT SUM(si.cost_price * si.quantity) FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id WHERE s2.status = 'Completed' AND DATE(s2.created_at) = DATE(s.created_at)), 0) as day_cost,
+    COALESCE((SELECT SUM(si.cost_price * si.quantity) FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id WHERE DATE(s2.created_at) = DATE(s.created_at)), 0) as day_cost,
     COALESCE((SELECT SUM(amount) FROM expenses WHERE date = DATE(s.created_at)), 0) as day_expenses,
     COALESCE((SELECT SUM(refund_amount) FROM returns WHERE date = DATE(s.created_at)), 0) as day_refunds
     FROM sales s 
-    WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ?
+    WHERE DATE(s.created_at) BETWEEN ? AND ?
     GROUP BY DATE(s.created_at)
     ORDER BY day_date ASC");
 $daysQuery->execute([$startDate, $endDate]);
@@ -140,12 +156,13 @@ $chartProfits = [];
 
 foreach ($daysList as $d) {
     $chartDays[] = date('d M', strtotime($d['day_date']));
-    $chartSales[] = (float) $d['day_sales'];
-    $dGross = (float) $d['day_sales'] - (float) $d['day_cost'];
-    $chartProfits[] = $dGross - (float) $d['day_expenses'] - (float) $d['day_refunds'];
+    $dNetSales = (float) $d['day_sales'] - (float) $d['day_refunds'];
+    $chartSales[] = $dNetSales;
+    $dGross = $dNetSales - (float) $d['day_cost'];
+    $chartProfits[] = $dGross - (float) $d['day_expenses'];
 }
 
-// 8. Top Selling Products in this date range
+// 9. Top Selling Products in this date range
 $topProductsStmt = $pdo->prepare("SELECT 
     p.name, 
     c.name as category_name,
@@ -157,14 +174,14 @@ $topProductsStmt = $pdo->prepare("SELECT
     JOIN sales s ON s.id = si.sale_id 
     JOIN products p ON p.id = si.product_id 
     LEFT JOIN categories c ON c.id = p.category_id 
-    WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ?
+    WHERE DATE(s.created_at) BETWEEN ? AND ?
     GROUP BY si.product_id 
     ORDER BY qty_sold DESC 
     LIMIT 8");
 $topProductsStmt->execute([$startDate, $endDate]);
 $topProducts = $topProductsStmt->fetchAll();
 
-// 9. Slow Moving / Dead Stock / Low Selling Products in this period
+// 10. Slow Moving / Dead Stock / Low Selling Products in this period
 $lowSellingStmt = $pdo->prepare("SELECT 
     p.id,
     p.name, 
@@ -182,16 +199,13 @@ $lowSellingStmt = $pdo->prepare("SELECT
                SUM(si.total_price) as revenue
         FROM sale_items si
         JOIN sales s ON s.id = si.sale_id
-        WHERE s.status = 'Completed' AND DATE(s.created_at) BETWEEN ? AND ?
+        WHERE DATE(s.created_at) BETWEEN ? AND ?
         GROUP BY si.product_id
     ) sales_summary ON sales_summary.product_id = p.id
     ORDER BY qty_sold ASC, p.stock_quantity DESC
     LIMIT 8");
 $lowSellingStmt->execute([$startDate, $endDate]);
 $lowSellingProducts = $lowSellingStmt->fetchAll();
-
-// Physical Drawer Cash reconciliation
-$expectedDrawerCash = $cashInflow - $cashOutflow;
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -261,7 +275,7 @@ include __DIR__ . '/../includes/header.php';
                     Rs <?= money($expectedDrawerCash) ?>
                 </div>
                 <p class="text-secondary" style="font-size: 13px; margin: 0;">
-                    Cash Inflow: <strong>Rs <?= money($cashInflow) ?></strong> (Sales: <?= money($salesData['cash_sales']) ?>, Udhar Recovered: <?= money($udharData['cash_recovered']) ?>) &minus; Cash Outflow: <strong>Rs <?= money($cashOutflow) ?></strong> (Expenses: <?= money($expData['cash_expenses']) ?>, Dealer: <?= money($dealerData['cash_dealer_paid']) ?>, Returns: <?= money($retData['total_refunds']) ?>)
+                    Cash Inflow: <strong>Rs <?= money($cashInflow) ?></strong> (Cash Sales: <?= money($salesData['cash_sales']) ?>, Udhar Recovered: <?= money($udharData['cash_recovered']) ?>) &minus; Cash Outflow: <strong>Rs <?= money($cashOutflow) ?></strong> (Expenses: <?= money($expData['cash_expenses']) ?>, Dealer Paid: <?= money($dealerData['cash_dealer_paid']) ?>, Cash Refunds: <?= money($retData['cash_refunds']) ?>)
                 </p>
             </div>
             <a href="<?= url('/operator/analytics.php') ?>" class="btn btn-sm btn-success">View Detailed Drawer Audit &rarr;</a>
@@ -271,16 +285,16 @@ include __DIR__ . '/../includes/header.php';
 
 <!-- Primary Metric Shortcuts for Selected Range -->
 <div class="stats-row">
-    <!-- Total Sales -->
+    <!-- Net Total Sales -->
     <div class="stat-box primary">
         <div class="stat-box-header">
-            <span class="stat-title">Total Sales Revenue</span>
+            <span class="stat-title">Total Sales Revenue (Net)</span>
             <div class="stat-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             </div>
         </div>
-        <div class="stat-value">Rs <?= money($salesData['total_sales']) ?></div>
-        <div class="stat-desc"><?= $salesData['total_invoices'] ?> Invoices generated</div>
+        <div class="stat-value">Rs <?= money($netTotalSales) ?></div>
+        <div class="stat-desc"><?= $salesData['total_invoices'] ?> Invoices &middot; Net after returns</div>
     </div>
 
     <!-- Purchase Cost of Goods -->
@@ -304,7 +318,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
         <div class="stat-value text-info">Rs <?= money($grossProfit) ?></div>
-        <div class="stat-desc">Sales revenue minus product cost</div>
+        <div class="stat-desc">Net sales minus product cost</div>
     </div>
 
     <!-- Net Profit -->
@@ -316,7 +330,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
         <div class="stat-value" style="color: #059669;">Rs <?= money($netProfit) ?></div>
-        <div class="stat-desc">Gross profit minus expenses & refunds</div>
+        <div class="stat-desc">Gross profit minus expenses</div>
     </div>
 </div>
 
@@ -335,10 +349,11 @@ include __DIR__ . '/../includes/header.php';
         <div class="stat-desc"><?= $salesData['bank_count'] ?> Invoices via bank transfer</div>
     </div>
 
+    <!-- Udhar Given (Direct Udhar Ledger) -->
     <div class="stat-box warning">
         <div class="stat-box-header"><span class="stat-title">Udhar (Credit Given)</span></div>
-        <div class="stat-value text-warning">Rs <?= money($salesData['udhar_sales']) ?></div>
-        <div class="stat-desc"><?= $salesData['udhar_count'] ?> Invoices on credit</div>
+        <div class="stat-value text-warning">Rs <?= money($udharGiven) ?></div>
+        <div class="stat-desc">Udhar ledger net amount issued</div>
     </div>
 
     <div class="stat-box purple">
@@ -546,8 +561,9 @@ include __DIR__ . '/../includes/header.php';
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($daysList as $d): 
-                                    $dGross = (float) $d['day_sales'] - (float) $d['day_cost'];
-                                    $dNet = $dGross - (float) $d['day_expenses'] - (float) $d['day_refunds'];
+                                    $dNetSales = (float) $d['day_sales'] - (float) $d['day_refunds'];
+                                    $dGross = $dNetSales - (float) $d['day_cost'];
+                                    $dNet = $dGross - (float) $d['day_expenses'];
                                 ?>
                                     <tr>
                                         <td>
@@ -556,7 +572,7 @@ include __DIR__ . '/../includes/header.php';
                                             </a>
                                         </td>
                                         <td class="text-center"><span class="badge badge-gray"><?= $d['invoices_count'] ?></span></td>
-                                        <td class="text-right font-bold text-success">Rs <?= money($d['day_sales']) ?></td>
+                                        <td class="text-right font-bold text-success">Rs <?= money($dNetSales) ?></td>
                                         <td class="text-right">Rs <?= money($d['day_cash']) ?></td>
                                         <td class="text-right">Rs <?= money($d['day_bank']) ?></td>
                                         <td class="text-right text-warning">Rs <?= money($d['day_udhar']) ?></td>
@@ -629,7 +645,7 @@ new Chart(ctxTrend, {
 const ctxMode = document.getElementById('periodModeChart').getContext('2d');
 const cashAmt = <?= (float) $salesData['cash_sales'] ?>;
 const bankAmt = <?= (float) $salesData['bank_sales'] ?>;
-const udharAmt = <?= (float) $salesData['udhar_sales'] ?>;
+const udharAmt = <?= (float) $udharGiven ?>;
 const hasData = (cashAmt + bankAmt + udharAmt) > 0;
 
 new Chart(ctxMode, {

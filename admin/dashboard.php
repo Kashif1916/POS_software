@@ -11,7 +11,7 @@ $trendQuery = $pdo->query("SELECT
     DATE(created_at) as sale_date,
     COALESCE(SUM(net_payable), 0) as total_amount
     FROM sales 
-    WHERE status = 'Completed' AND created_at >= CURDATE() - INTERVAL 6 DAY
+    WHERE created_at >= CURDATE() - INTERVAL 6 DAY
     GROUP BY DATE(created_at)
     ORDER BY sale_date ASC")->fetchAll();
 

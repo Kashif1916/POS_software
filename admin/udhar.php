@@ -686,7 +686,7 @@ function openEditCustomerModal(cust) {
     document.getElementById('edit_cust_name').value = cust.name;
     document.getElementById('edit_cust_phone').value = cust.phone || '';
     document.getElementById('edit_cust_limit').value = cust.credit_limit || '0.00';
-    document.getElementById('edit_cust_opening').value = cust.current_balance || cust.opening_balance || '0.00';
+    document.getElementById('edit_cust_opening').value = cust.opening_balance || '0.00';
     document.getElementById('edit_cust_address').value = cust.address || '';
     document.getElementById('edit_cust_notes').value = cust.notes || '';
     document.getElementById('editCustomerModal').classList.add('active');

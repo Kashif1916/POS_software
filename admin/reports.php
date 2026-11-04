@@ -16,12 +16,12 @@ $selectedYear = (int) ($_GET['year'] ?? date('Y'));
 if ($view === 'daily') {
     // Sales summary for selected date
     $sStmt = $pdo->prepare("SELECT 
-        COUNT(CASE WHEN status = 'Completed' THEN 1 END) as invoices,
-        COALESCE(SUM(CASE WHEN status = 'Completed' THEN net_payable ELSE 0 END), 0) as total_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) as cash_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) as bank_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) as udhar_sales,
-        COALESCE(SUM(CASE WHEN status = 'Completed' THEN bonus_discount ELSE 0 END), 0) as total_discounts
+        COUNT(*) as invoices,
+        COALESCE(SUM(net_payable), 0) as total_sales,
+        COALESCE(SUM(CASE WHEN payment_mode = 'Cash' THEN net_payable ELSE 0 END), 0) as cash_sales,
+        COALESCE(SUM(CASE WHEN payment_mode = 'Bank' THEN net_payable ELSE 0 END), 0) as bank_sales,
+        COALESCE(SUM(CASE WHEN payment_mode = 'Udhar' THEN net_payable ELSE 0 END), 0) as udhar_sales,
+        COALESCE(SUM(bonus_discount), 0) as total_discounts
         FROM sales WHERE DATE(created_at) = ?");
     $sStmt->execute([$selectedDate]);
     $daySales = $sStmt->fetch();
@@ -31,7 +31,7 @@ if ($view === 'daily') {
         COALESCE(SUM(si.cost_price * si.quantity), 0) as cogs
         FROM sale_items si 
         JOIN sales s ON s.id = si.sale_id 
-        WHERE s.status = 'Completed' AND DATE(s.created_at) = ?");
+        WHERE DATE(s.created_at) = ?");
     $cStmt->execute([$selectedDate]);
     $dayCogs = (float) $cStmt->fetchColumn();
 
@@ -103,11 +103,11 @@ elseif ($view === 'monthly') {
         SUM(CASE WHEN s.payment_mode = 'Cash' THEN s.net_payable ELSE 0 END) as cash_sales,
         SUM(CASE WHEN s.payment_mode = 'Bank' THEN s.net_payable ELSE 0 END) as bank_sales,
         SUM(CASE WHEN s.payment_mode = 'Udhar' THEN s.net_payable ELSE 0 END) as udhar_sales,
-        COALESCE((SELECT SUM(si.cost_price * si.quantity) FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id WHERE s2.status = 'Completed' AND DATE(s2.created_at) = DATE(s.created_at)), 0) as cost,
+        COALESCE((SELECT SUM(si.cost_price * si.quantity) FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id WHERE DATE(s2.created_at) = DATE(s.created_at)), 0) as cost,
         COALESCE((SELECT SUM(amount) FROM expenses WHERE date = DATE(s.created_at)), 0) as expenses,
         COALESCE((SELECT SUM(refund_amount) FROM returns WHERE date = DATE(s.created_at)), 0) as refunds
         FROM sales s 
-        WHERE s.status = 'Completed' AND MONTH(s.created_at) = ? AND YEAR(s.created_at) = ?
+        WHERE MONTH(s.created_at) = ? AND YEAR(s.created_at) = ?
         GROUP BY DATE(s.created_at)
         ORDER BY day_date DESC");
     $mStmt->execute([$mMonth, $mYear]);
@@ -139,10 +139,10 @@ elseif ($view === 'yearly') {
         $sRow = $pdo->prepare("SELECT 
             COUNT(*) as invoices,
             COALESCE(SUM(net_payable), 0) as sales,
-            COALESCE((SELECT SUM(si.cost_price * si.quantity) FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id WHERE s2.status = 'Completed' AND MONTH(s2.created_at) = ? AND YEAR(s2.created_at) = ?), 0) as cost,
+            COALESCE((SELECT SUM(si.cost_price * si.quantity) FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id WHERE MONTH(s2.created_at) = ? AND YEAR(s2.created_at) = ?), 0) as cost,
             COALESCE((SELECT SUM(amount) FROM expenses WHERE MONTH(date) = ? AND YEAR(date) = ?), 0) as expenses
             FROM sales 
-            WHERE status = 'Completed' AND MONTH(created_at) = ? AND YEAR(created_at) = ?");
+            WHERE MONTH(created_at) = ? AND YEAR(created_at) = ?");
         $sRow->execute([$m, $selectedYear, $m, $selectedYear, $m, $selectedYear]);
         $data = $sRow->fetch();
 

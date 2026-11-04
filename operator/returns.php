@@ -1,3 +1,4 @@
+return wali purani file 
 <?php
 require_once __DIR__ . '/../includes/functions.php';
 require_login(); // accessible by Operator and Admin
@@ -73,8 +74,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'proce
                 $pdo->prepare("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?")->execute([$returnQty, $productId]);
             }
 
-            // Update sales status to Returned if all items returned
-            $pdo->prepare("UPDATE sales SET status = 'Returned' WHERE id = ?")->execute([$saleId]);
+            // Check if ALL items of this sale have now been returned
+            $remainingItemsCount = (int) $pdo->query("SELECT COUNT(*) FROM sale_items si 
+                WHERE si.sale_id = $saleId 
+                AND (si.quantity - COALESCE((SELECT SUM(r.quantity) FROM returns r WHERE r.sale_id = si.sale_id AND r.product_id = si.product_id), 0)) > 0"
+            )->fetchColumn();
+
+            if ($remainingItemsCount === 0) {
+                $pdo->prepare("UPDATE sales SET status = 'Returned' WHERE id = ?")->execute([$saleId]);
+            }
+
+            // If this was an Udhar (credit) sale, deduct refund amount from udhar_ledger
+            $udharLedger = $pdo->prepare("SELECT * FROM udhar_ledger WHERE sale_id = ? LIMIT 1");
+            $udharLedger->execute([$saleId]);
+            $udharEntry = $udharLedger->fetch();
+
+            if ($udharEntry) {
+                $currentBalance  = (float) $udharEntry['balance_amount'];
+                $currentTotal    = (float) $udharEntry['total_amount'];
+                $currentPaid     = (float) $udharEntry['paid_amount'];
+
+                // Reduce total_amount by refund (cannot go below paid_amount)
+                $newTotal   = max($currentPaid, $currentTotal - $refundAmount);
+                $newBalance = max(0.0, $newTotal - $currentPaid);
+                $newStatus  = $newBalance <= 0 ? 'Cleared' : 'Pending';
+
+                $pdo->prepare("UPDATE udhar_ledger SET total_amount = ?, balance_amount = ?, status = ? WHERE id = ?")
+                    ->execute([$newTotal, $newBalance, $newStatus, $udharEntry['id']]);
+            }
 
             $pdo->commit();
             flash('success', "Return of {$returnQty}x '{$item['product_name']}' processed successfully! Refund amount: Rs " . money($refundAmount) . ". Stock restored to inventory.");
